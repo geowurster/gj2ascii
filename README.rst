@@ -171,8 +171,12 @@ Use the ``--all`` flag to render the entire layer:
 Caveats
 =======
 
-Relies on [Fiona](http://toblerity.org/fiona/) for reading vector data, so reading
-delimited JSON or JSON from a file or `stdin` is not yet supported.
+The aspect ration of a character on the commandline is not equal so there is some
+vertical distortion.
+
+Relies on [Fiona](http://toblerity.org/fiona/) for reading vector data, so
+reading delimited JSON or JSON from a file or ``stdin`` is not yet supported.  It
+would be extra slick if this could take the output from ``fio cat``.
 
 
 Installing
