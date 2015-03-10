@@ -4,7 +4,8 @@ gj2ascii
 
 Render GeoJSON as ASCII on the commandline.
 
-Inspired by [@vtcraghead](twitter.com/vtcraghead) and [@dnomadb](twitter.com/dnomadb).  Needs a better name.
+Inspired by `@vtcraghead <twitter.com/vtcraghead>`__, `@dnomadb <twitter.com/dnomadb>`__, and
+`Twitter <https://twitter.com/vtcraghead/status/575370039701929984>`__.  Needs a better name.
 
 
 Examples

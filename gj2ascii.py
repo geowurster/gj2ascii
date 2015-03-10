@@ -165,6 +165,7 @@ def main(infile, outfile, res, layer_name, render_all, fill, default_value, all_
             for feat in vector:
 
                 # Compute cell size for the affine transformation
+                # TODO: Replace with manual computation to eliminate the shapely dependency?
                 geom = asShape(feat['geometry'])
                 x_min, y_min, x_max, y_max = geom.bounds
                 cell_size_x = (x_max - x_min) / res
