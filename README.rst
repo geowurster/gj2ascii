@@ -118,7 +118,7 @@ them by pressing return:
 
 Use the ``--all`` flag to render the entire layer:
 
-.. code-block:: python
+.. code-block:: console
 
     $ gj2ascii wursterk$ gj2ascii sample-data/polygons.geojson -d 0 --all
 
@@ -173,3 +173,25 @@ Caveats
 
 Relies on [Fiona](http://toblerity.org/fiona/) for reading vector data, so reading
 delimited JSON or JSON from a file or `stdin` is not yet supported.
+
+
+Installing
+==========
+
+Via pip:
+
+.. code-block:: console
+
+    pip install gj2ascii
+
+
+Developing
+==========
+
+.. code-block:: console
+
+    $ git clone https://github.com/geowurster/gj2ascii.git
+    $ cd gj2ascii
+    $ virtualenv venv
+    $ source venv/bin/activate
+    $ pip install -e .
