@@ -77,7 +77,12 @@ def _format_rasterized(a, fill, value):
 
     a = a.astype(np.str_)
     a = np.char.replace(a, '0', fill)
-    return np.char.replace(a, '1', value)
+    a = np.char.replace(a, '1', value)
+
+    with BytesIO() as _a_f:
+        np.savetxt(_a_f, a, fmt='%s')
+        _a_f.seek(0)
+        return _a_f.read().decode("utf-8")
 
 
 @click.command()
@@ -112,7 +117,11 @@ def _format_rasterized(a, fill, value):
     '--crs', metavar='DEF',
     help="Specify input CRS."
 )
-def main(infile, outfile, width, layer_name, render_all, fill, value, all_touched, crs):
+@click.option(
+    '--no-prompt', is_flag=True,
+    help="Print all geometries without pausing in between."
+)
+def main(infile, outfile, width, layer_name, render_all, fill, value, all_touched, crs, no_prompt):
 
     """
     Render GeoJSON on the commandline as ASCII.
@@ -126,7 +135,7 @@ def main(infile, outfile, width, layer_name, render_all, fill, value, all_touche
     if len(fill) is not 1:
         raise ValueError("Fill value must be 1 character long not %s: `%s'" % (len(fill), fill))
     if len(value) is not 1:
-        raise ValueError("Geometry value must be 1 character long, not %s: `%s'" % (len(value), value))
+        raise ValueError("Rasterize value must be 1 character long, not %s: `%s'" % (len(value), value))
 
     open_kwargs = {'layer': layer_name}
     if crs is not None:
@@ -149,7 +158,7 @@ def main(infile, outfile, width, layer_name, render_all, fill, value, all_touche
             x_delta = x_max - x_min
             y_delta = y_max - y_min
             cell_size = x_delta / width
-            height = int(y_delta / cell_size)
+            height = int(y_delta / cell_size) + 1
             transform = affine.Affine.from_gdal(*(x_min, cell_size, 0.0, y_max, 0.0, -cell_size))
 
             # If rending all then the geometries are already wrapped in a generator
@@ -169,12 +178,6 @@ def main(infile, outfile, width, layer_name, render_all, fill, value, all_touche
                 dtype=rasterio.uint8
             )
 
-            # Convert the rasterized array to text
-            with BytesIO() as _a_f:
-                np.savetxt(_a_f, _format_rasterized(rasterized, fill=fill, value=value), fmt='%s')
-                _a_f.seek(0)
-                array_as_string = _a_f.read().decode("utf-8")
-
             # Write the line
             outfile.write("""
 FID: {feat_id}
@@ -185,21 +188,21 @@ Max Y: {y_max}
 
 {formatted_array}
 """.format(
-                feat_id='all' if render_all else feat['id'],
+                feat_id='All' if render_all else feat['id'],
                 x_min=x_min,
                 x_max=x_max,
                 y_min=y_min,
                 y_max=y_max,
-                formatted_array=array_as_string
+                formatted_array=_format_rasterized(rasterized, fill=fill, value=value)
             ))
 
             # If not running on python3 this is aliased to raw_input
-            if not render_all:
-                if input("Press enter for the next geometry or ^C/^D or 'q' to quit...") != '':
+            if not render_all and not no_prompt:
+                if input("Press enter for the next geometry or ^C/^D or 'q' to quit...") != '':  # pragma no cover
                     break
 
     sys.exit(0)
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma no cover
     main()

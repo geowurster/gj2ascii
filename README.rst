@@ -4,8 +4,15 @@ gj2ascii
 
 Render GeoJSON as ASCII on the commandline.
 
-Inspired by `Twitter <https://twitter.com/vtcraghead/status/575370039701929984>`__, vtcraghead, and dnomadb.
-Needs a better name.
+.. image:: https://travis-ci.org/geowurster/gj2ascii.svg?branch=master
+    :target: https://travis-ci.org/geowurster/gj2ascii
+
+.. image:: https://coveralls.io/repos/geowurster/gj2ascii/badge.svg?branch=master
+    :target: https://coveralls.io/r/geowurster/gj2ascii
+
+
+
+Inspired by @wboykinm, @dnomadb, and `Twitter <https://twitter.com/vtcraghead/status/575370039701929984>`__.  Needs a better name.
 
 
 .. image:: https://raw.githubusercontent.com/geowurster/gj2ascii/master/docs/WV.png
@@ -27,17 +34,6 @@ Use the ``--all`` flag to render the entire layer:
    :target: https://github.com/geowurster/gj2ascii
 
 
-Caveats
-=======
-
-The aspect ration of a character on the commandline is not equal so there is some
-vertical distortion.
-
-Relies on [Fiona](http://toblerity.org/fiona/) for reading vector data, so
-reading delimited JSON or JSON from a file or ``stdin`` is not yet supported.  It
-would be extra slick if this could take the output from ``fio cat``.
-
-
 Installing
 ==========
 
@@ -57,4 +53,6 @@ Developing
     $ cd gj2ascii
     $ virtualenv venv
     $ source venv/bin/activate
+    $ pip install -r requirements-dev.txt
     $ pip install -e .
+    $ nosetests --with-coverage
