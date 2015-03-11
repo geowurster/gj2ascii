@@ -155,10 +155,13 @@ def main(infile, outfile, width, layer_name, render_all, fill, value, all_touche
                 x_min, y_min, x_max, y_max = _geom.bounds
 
             # Compute output height and cell size
+            # Some line and point datasources could yield a situation where the height is 0.  Check and adjust.
             x_delta = x_max - x_min
             y_delta = y_max - y_min
             cell_size = x_delta / width
-            height = int(y_delta / cell_size) + 1
+            height = int(y_delta / cell_size)
+            if height is 0:
+                height += 1
             transform = affine.Affine.from_gdal(*(x_min, cell_size, 0.0, y_max, 0.0, -cell_size))
 
             # If rending all then the geometries are already wrapped in a generator
