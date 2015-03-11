@@ -1,13 +1,21 @@
 #!/usr/bin/env python
 
 
-import os
+"""
+Render GeoJSON as ASCII on the commandline.
+"""
+
+
+from __future__ import division
+
 import sys
+from io import BytesIO
 
 import affine
 import click
 import fiona
 import numpy as np
+import rasterio
 from rasterio.features import rasterize
 from shapely.geometry import asShape
 
@@ -52,28 +60,7 @@ if not PY3:
     input = raw_input
 
 
-def _geom_generator(feat_iterator):
-
-    """
-    Generator to extract geometry from every input feature to conserve memory.
-
-    Parameters
-    ----------
-    feat_iterator : iter
-        An iterable object producing one GeoJSON feature (or anything with a
-        'geometry' key) per iteration.
-
-    Yields
-    ------
-    dict
-        GeoJSON geometry object.
-    """
-
-    for feat in feat_iterator:
-        yield feat['geometry']
-
-
-def _format_rasterized(a, fill, default_value):
+def _format_rasterized(a, fill, value):
 
     """
     Prepare a numpy array for printing to the console.
@@ -90,19 +77,19 @@ def _format_rasterized(a, fill, default_value):
 
     a = a.astype(np.str_)
     a = np.char.replace(a, '0', fill)
-    return np.char.replace(a, '1', default_value)
+    return np.char.replace(a, '1', value)
 
 
 @click.command()
 @click.version_option(version=__version__)
 @click.argument('infile')
-@click.argument('outfile', type=click.File(mode='wb'), default='-')
+@click.argument('outfile', type=click.File(mode='w'), default='-')
 @click.option(
     '-l', '--layer', 'layer_name', metavar='NAME',
     help="Specify input layer for multi-layer datasources."
 )
 @click.option(
-    '-r', '--res', type=click.INT, default=40,
+    '-w', '--width', type=click.INT, default=40,
     help="Render geometry with N rows and columns."
 )
 @click.option(
@@ -110,18 +97,22 @@ def _format_rasterized(a, fill, default_value):
     help="Render entire layer instead of individual geometries."
 )
 @click.option(
-    '-f', '--fill', default='', metavar='CHAR',
-    help="Fill value for rasterization."
+    '-f', '--fill', default=' ', metavar='CHAR',
+    help="Fill value for rasterization.  Only 1 character is allowed."
 )
 @click.option(
-    '-d', '--default-value', default='#', metavar='CHAR',
-    help="Default value for rasterization."
+    '-v', '--value', default='+', metavar='CHAR',
+    help="Default value for rasterization.  Only 1 character is allowed."
 )
 @click.option(
     '-at', '--all-touched', is_flag=True,
     help="Enable 'all_touched' rasterization."
 )
-def main(infile, outfile, res, layer_name, render_all, fill, default_value, all_touched):
+@click.option(
+    '--crs', metavar='DEF',
+    help="Specify input CRS."
+)
+def main(infile, outfile, width, layer_name, render_all, fill, value, all_touched, crs):
 
     """
     Render GeoJSON on the commandline as ASCII.
@@ -131,75 +122,79 @@ def main(infile, outfile, res, layer_name, render_all, fill, default_value, all_
     next geometry.
     """
 
-    # Rasterize all features in the input layer
-    if render_all:
-        with fiona.open(infile, layer=layer_name) as vector:
+    # Make sure that fill and value are both only one character long.  Anything else and the output is weird.
+    if len(fill) is not 1:
+        raise ValueError("Fill value must be 1 character long not %s: `%s'" % (len(fill), fill))
+    if len(value) is not 1:
+        raise ValueError("Geometry value must be 1 character long, not %s: `%s'" % (len(value), value))
 
-            # Compute cell size for the affine transformation
-            x_min, y_min, x_max, y_max = vector.bounds
-            cell_size_x = (x_max - x_min) / res
-            cell_size_y = (y_max - y_min) / res
+    open_kwargs = {'layer': layer_name}
+    if crs is not None:
+        open_kwargs['crs'] = crs
 
-            # Burn all geometries into a numpy array
+    with fiona.open(infile, **open_kwargs) as src:
+
+        # If we're rendering all the input features wrap them in a list containing a single generator that produces
+        # the geometry to save some memory.  Otherwise, just iterate over all the features normally.
+        for feat in src if not render_all else [(_f['geometry'] for _f in src)]:
+
+            # Compute the height for the entire layer if rendering all, otherwise just compute from the feature
+            if render_all:
+                x_min, y_min, x_max, y_max = src.bounds
+            else:
+                _geom = asShape(feat['geometry'])
+                x_min, y_min, x_max, y_max = _geom.bounds
+
+            # Compute output height and cell size
+            x_delta = x_max - x_min
+            y_delta = y_max - y_min
+            cell_size = x_delta / width
+            height = int(y_delta / cell_size)
+            transform = affine.Affine.from_gdal(*(x_min, cell_size, 0.0, y_max, 0.0, -cell_size))
+
+            # If rending all then the geometries are already wrapped in a generator
+            # Otherwise stick the feature's geometry in a list so `rasterize()` has something to iterate over
+            if render_all:
+                shapes = feat
+            else:
+                shapes = [feat['geometry']]
+
             rasterized = rasterize(
                 fill=0,
                 default_value=1,
-                shapes=_geom_generator(vector),
-                out_shape=(res, res),
-                transform=affine.Affine(cell_size_x, 0, x_min, 0, -cell_size_y, y_max),
+                shapes=shapes,
+                out_shape=(height, width),
+                transform=transform,
                 all_touched=all_touched,
-                dtype=np.uint8
+                dtype=rasterio.uint8
             )
 
-            # Print out some stats
-            sys.stdout.write(os.linesep)
-            sys.stdout.write("Min X: %s" % x_min + os.linesep)
-            sys.stdout.write("Max X: %s" % x_max + os.linesep)
-            sys.stdout.write("Min Y: %s" % y_min + os.linesep)
-            sys.stdout.write("Max Y: %s" % y_max + os.linesep)
-            sys.stdout.write(os.linesep)
+            # Convert the rasterized array to text
+            with BytesIO() as _a_f:
+                np.savetxt(_a_f, _format_rasterized(rasterized, fill=fill, value=value), fmt='%s')
+                _a_f.seek(0)
+                array_as_string = _a_f.read().decode("utf-8")
 
-            # Dump the numpy array
-            np.savetxt(outfile, _format_rasterized(rasterized, fill=fill, default_value=default_value), fmt='%s')
-            sys.stdout.write(os.linesep)
+            # Write the line
+            outfile.write("""
+FID: {feat_id}
+Min X: {x_min}
+Max X: {x_max}
+Min Y: {y_min}
+Max Y: {y_max}
 
-    # Paginate through
-    else:
-        with fiona.open(infile, layer=layer_name) as vector:
-            for feat in vector:
+{formatted_array}
+""".format(
+                feat_id='all' if render_all else feat['id'],
+                x_min=x_min,
+                x_max=x_max,
+                y_min=y_min,
+                y_max=y_max,
+                formatted_array=array_as_string
+            ))
 
-                # Compute cell size for the affine transformation
-                # TODO: Replace with manual computation to eliminate the shapely dependency?
-                geom = asShape(feat['geometry'])
-                x_min, y_min, x_max, y_max = geom.bounds
-                cell_size_x = (x_max - x_min) / res
-                cell_size_y = (y_max - y_min) / res
-
-                # Rasterize a geometry
-                rasterized = rasterize(
-                    fill=0,
-                    default_value=1,
-                    shapes=[geom],
-                    out_shape=(res, res),
-                    transform=affine.Affine(cell_size_x, 0, x_min, 0, -cell_size_y, y_max),
-                    all_touched=all_touched,
-                    dtype=np.uint8
-                )
-
-                # Print some stats for the current geometry
-                sys.stdout.write(os.linesep)
-                sys.stdout.write("FID: %s" % feat['id'] + os.linesep)
-                sys.stdout.write("Min X: %s" % x_min + os.linesep)
-                sys.stdout.write("Max X: %s" % x_max + os.linesep)
-                sys.stdout.write("Min Y: %s" % y_min + os.linesep)
-                sys.stdout.write("Max Y: %s" % y_max + os.linesep)
-
-                # Dump the numpy array for the current geometry
-                sys.stdout.write(os.linesep)
-                np.savetxt(outfile, _format_rasterized(rasterized, fill=fill, default_value=default_value), fmt='%s')
-                sys.stdout.write(os.linesep)
-
-                # Hold until the user is ready - this is raw_input in python2
+            # If not running on python3 this is aliased to raw_input
+            if not render_all:
                 if input("Press enter for the next geometry or ^C/^D or 'q' to quit...") != '':
                     break
 
