@@ -47,6 +47,10 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 '''
 
+PY3 = sys.version_info[0] == 3
+if not PY3:
+    input = raw_input
+
 
 def _geom_generator(feat_iterator):
 
@@ -92,7 +96,7 @@ def _format_rasterized(a, fill, default_value):
 @click.command()
 @click.version_option(version=__version__)
 @click.argument('infile')
-@click.argument('outfile', type=click.File(mode='w'), default='-')
+@click.argument('outfile', type=click.File(mode='wb'), default='-')
 @click.option(
     '-l', '--layer', 'layer_name', metavar='NAME',
     help="Specify input layer for multi-layer datasources."
@@ -195,8 +199,8 @@ def main(infile, outfile, res, layer_name, render_all, fill, default_value, all_
                 np.savetxt(outfile, _format_rasterized(rasterized, fill=fill, default_value=default_value), fmt='%s')
                 sys.stdout.write(os.linesep)
 
-                #
-                if raw_input("Press enter for the next geometry or 'q' to quit...") != '':
+                # Hold until the user is ready - this is raw_input in python2
+                if input("Press enter for the next geometry or ^C/^D or 'q' to quit...") != '':
                     break
 
     sys.exit(0)
