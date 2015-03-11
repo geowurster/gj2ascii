@@ -7,10 +7,6 @@ Render GeoJSON as ASCII on the commandline.
 Inspired by `Twitter <https://twitter.com/vtcraghead/status/575370039701929984>`__, vtcraghead, and dnomadb.
 Needs a better name.
 
-vtcraghead: `twitter.com/vtcraghead <twitter.com/vtcraghead>`__
-
-dnomadb: `twitter.com/dnomadb <twitter.com/dnomadb>`__
-
 
 .. image:: https://raw.githubusercontent.com/geowurster/gj2ascii/master/docs/WV.png
    :target: https://github.com/geowurster/gj2ascii
