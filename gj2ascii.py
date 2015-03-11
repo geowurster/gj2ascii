@@ -20,7 +20,7 @@ from rasterio.features import rasterize
 from shapely.geometry import asShape
 
 
-__version__ = '0.1.2'
+__version__ = '0.2.0'
 __author__ = 'Kevin Wurster'
 __email__ = 'wursterk@gmail.com'
 __source__ = 'https://github.com/geowurster/gj2ascii'

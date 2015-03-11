@@ -45,7 +45,6 @@ Max Y: 4369446.92893
 
 
 EXPECTED_LINE_20_WIDE = """
-
 FID: 0
 Min X: 256848.263169
 Max X: 258243.515542
@@ -86,7 +85,6 @@ Max Y: 4369009.9267
 . . . . . . + + . . + . . . . . + + . .
 . . . . . . . + + . + . . . . . . + + .
 . . . . . . . . + + + . . . . . . . + +
-. . . . . . . . . + . . . . . . . . . +
 
 
 FID: 1
@@ -150,7 +148,6 @@ Max Y: 4368963.02746
 . . . . . . . . . . . . . . . . . . + +
 . . . . . . . . . . . . . . . . . . . +
 . . . . . . . . . . . . . . . . . . . +
-. . . . . . . . . . . . . . . . . . . +
 
 
 FID: 2
@@ -193,7 +190,7 @@ class TestCli(unittest.TestCase):
         expected_args = {
             EXPECTED_POLYGON_20_WIDE: [
                 self.poly_file,
-                '--width', 20,
+                '--width', '20',
                 '--value', value,
                 '--fill', fill,
                 '--all'
@@ -204,7 +201,6 @@ class TestCli(unittest.TestCase):
                 '--fill', '.',
                 '--no-prompt',
                 '--all-touched',
-                '--no-prompt',
                 self.line_file
             ]
         }
