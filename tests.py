@@ -193,7 +193,6 @@ class TestCli(unittest.TestCase):
                 '--width', '20',
                 '--value', value,
                 '--fill', fill,
-                '--all'
             ],
             EXPECTED_LINE_20_WIDE: [
                 '--width', '20',
@@ -201,6 +200,7 @@ class TestCli(unittest.TestCase):
                 '--fill', '.',
                 '--no-prompt',
                 '--all-touched',
+                '--iterate',
                 self.line_file
             ]
         }
@@ -227,7 +227,7 @@ class TestCli(unittest.TestCase):
         self.assertEqual(result.exc_info[0], ValueError)
 
     def test_header(self):
-        result = self.runner.invoke(gj2ascii.main, [self.poly_file, '--width', 20, '--value', '+', '--fill', '.', '--all'])
+        result = self.runner.invoke(gj2ascii.main, [self.poly_file, '--width', 20, '--value', '+', '--fill', '.'])
         fid = None
         x_min = None
         x_max = None

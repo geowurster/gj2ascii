@@ -98,8 +98,8 @@ def _format_rasterized(a, fill, value):
     help="Render geometry with N rows and columns."
 )
 @click.option(
-    '--all', 'render_all', is_flag=True,
-    help="Render entire layer instead of individual geometries."
+    '-i', '--iterate', is_flag=True,
+    help="Iterate over input features and display each individually."
 )
 @click.option(
     '-f', '--fill', default=' ', metavar='CHAR',
@@ -121,14 +121,10 @@ def _format_rasterized(a, fill, value):
     '--no-prompt', is_flag=True,
     help="Print all geometries without pausing in between."
 )
-def main(infile, outfile, width, layer_name, render_all, fill, value, all_touched, crs, no_prompt):
+def main(infile, outfile, width, layer_name, iterate, fill, value, all_touched, crs, no_prompt):
 
     """
     Render GeoJSON on the commandline as ASCII.
-
-    Use --all to view the entire input layer, otherwise input geometries are
-    'paginated' and presented sequentially.  Press enter to advance to the
-    next geometry.
     """
 
     # Make sure that fill and value are both only one character long.  Anything else and the output is weird.
@@ -145,14 +141,14 @@ def main(infile, outfile, width, layer_name, render_all, fill, value, all_touche
 
         # If we're rendering all the input features wrap them in a list containing a single generator that produces
         # the geometry to save some memory.  Otherwise, just iterate over all the features normally.
-        for feat in src if not render_all else [(_f['geometry'] for _f in src)]:
+        for feat in src if iterate else [(_f['geometry'] for _f in src)]:
 
             # Compute the height for the entire layer if rendering all, otherwise just compute from the feature
-            if render_all:
-                x_min, y_min, x_max, y_max = src.bounds
-            else:
+            if iterate:
                 _geom = asShape(feat['geometry'])
                 x_min, y_min, x_max, y_max = _geom.bounds
+            else:
+                x_min, y_min, x_max, y_max = src.bounds
 
             # Compute output height and cell size
             # Some line and point datasources could yield a situation where the height is 0.  Check and adjust.
@@ -166,10 +162,11 @@ def main(infile, outfile, width, layer_name, render_all, fill, value, all_touche
 
             # If rending all then the geometries are already wrapped in a generator
             # Otherwise stick the feature's geometry in a list so `rasterize()` has something to iterate over
-            if render_all:
-                shapes = feat
-            else:
+            if iterate:
                 shapes = [feat['geometry']]
+
+            else:
+                shapes = feat
 
             rasterized = rasterize(
                 fill=0,
@@ -191,7 +188,7 @@ Max Y: {y_max}
 
 {formatted_array}
 """.format(
-                feat_id='All' if render_all else feat['id'],
+                feat_id=feat['id'] if iterate else 'All',
                 x_min=x_min,
                 x_max=x_max,
                 y_min=y_min,
@@ -200,7 +197,7 @@ Max Y: {y_max}
             ))
 
             # If not running on python3 this is aliased to raw_input
-            if not render_all and not no_prompt:
+            if iterate and not no_prompt:
                 if input("Press enter for the next geometry or ^C/^D or 'q' to quit...") != '':  # pragma no cover
                     break
 
