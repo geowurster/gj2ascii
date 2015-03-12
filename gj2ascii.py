@@ -8,8 +8,11 @@ Render GeoJSON as ASCII on the commandline.
 
 from __future__ import division
 
-import sys
+import itertools
 from io import BytesIO
+import os
+import sys
+from types import GeneratorType
 
 import affine
 import click
@@ -55,34 +58,215 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 '''
 
+
+DEFAULT_FILL = ' '
+DEFAULT_VALUE = '+'
+
+
 PY3 = sys.version_info[0] == 3
 if not PY3:
     input = raw_input
+    STR = unicode
+    STR_TYPES = (str, unicode)
+else:
+    STR = str
+    STR_TYPES = (str)
 
 
-def _format_rasterized(a, fill, value):
+def dict_table(dictionary, keys=None):
 
     """
-    Prepare a numpy array for printing to the console.
+    Convert a dictionary to an ASCII formatted table.  Control output fields
+    with the `keys` parameter.
+
+    Example input:
+
+        {
+            'ALAND': '883338808',
+            'AWATER': 639183,
+            'CBSAFP': one,
+            'CLASSFP': 'H1',
+            'COUNTYFP': '001'
+        }
+
+    Convert all fields:
+
+        >>> import gj2ascii
+        >>> print(gj2ascii.dict_table(example_dict))
+        +----------+-----------+
+        | AWATER   |   4639183 |
+        +----------+-----------+
+        | ALAND    | 883338808 |
+        +----------+-----------+
+        | COUNTYFP |       001 |
+        +----------+-----------+
+        | CLASSFP  |        H1 |
+        +----------+-----------+
+        | CBSAFP   |      None |
+        +----------+-----------+
+
+    Convert a subset of fields:
+
+        >>> import gj2ascii
+        >>> print(gj2ascii.dict_table(example_dict, keys=['COUNTYFP', 'AWATER']))
+        +----------+---------+
+        | AWATER   | 4639183 |
+        +----------+---------+
+        | COUNTYFP |     001 |
+        +----------+---------+
+
+
+    Parameter
+    ---------
+    dictionary : dict
+        Keys are
+    """
+
+    if keys == '%all':
+        keys = dictionary.keys()
+
+    # Filter dictionary and make sure it actually contains data
+    # Cast everything to a string now so we don't have to do it again later
+    if keys is not None:
+        dictionary = {STR(k): STR(v) for k, v in dictionary.items() if k in keys}
+    if len(dictionary) is 0:
+        raise ValueError("Input dictionary is empty.")
+
+    # Add two at the end to account for spaces around |
+    prop_width = max([len(e) for e in dictionary.keys()])
+    value_width = max([len(e) for e in dictionary.values()])
+
+    # Add 2 to the prop/value width to account for the single space padding around the properties and values
+    # | Property | Value |
+    #  ^        ^ ^     ^
+    # We don't need it later so only add it here
+    divider = ''.join(['+', '-' * (prop_width + 2), '+', '-' * (value_width + 2), '+'])
+    output = [divider]
+    for prop, value in dictionary.items():
+        value = STR(value)
+        prop_content = prop + ' ' * (prop_width - len(prop))
+        value_content = ' ' * (value_width - len(value)) + value
+        output.append('| ' + prop_content + ' | ' + value_content + ' |')
+        output.append(divider)
+    return os.linesep.join(output)
+
+
+def render(ftrz, width, fill=DEFAULT_FILL, value=DEFAULT_VALUE, all_touched=False,
+           x_min=None, x_max=None, y_min=None, y_max=None):
+
+    """
+    Convert GeoJSON features to their ASCII representation.
+
+    Render all example:
+
+        >>> import gj2ascii
+        >>> import fiona
+        >>> with fiona.open('sample-data/polygons.geojson') as src:
+        ...     print(gj2ascii.render(src, 15, fill='.', value='*'))
+        . * . * . . . . . . . . . . .
+        . * * . . . . . . * . . . . .
+        . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . .
+        . . . . . . . * * . . . . . .
+        . . . . . . . * * * . . . . .
+        . . . . . . . . * * . . . * .
+        * * * . . . . . . . . . * * *
+        . * * . . . . . . . . . . * *
+        . . . . . . * . . . . . . * .
+        . . . . . * * . . . . . . . .
+        . . . . . * * . . . . . . . .
+        . . . . . . * . . . . . . . .
+
+    Render a single feature:
+
+        >>> import gj2ascii
+        >>> import fiona
+        >>> with fiona.open('sample-data/polygons.geojson') as src:
+        ...     feat = [next(src)]  # Wrap in a list so its iterable
+        ...     print(gj2ascii.render(feat, 15, fill='.', value='*'))
+                  +
+              + +
+        + + + + +
+        + + + + +               + + +
+          + + + + +         + + + +
+          + + + + +     + + + + + +
+          + + + + + + + + + + + +
+              + + + + + + + + + +
+                    + + + + + + +
+                          + + +
+
 
     Parameters
     ----------
-    a : array-like object
-        Rasterized geometry
-    fill : str
-        Background value.
-    default_value : str
-        Geometry fill value.
+    ftrz : iter
+        An iterable object producing one GeoJSON feature per iteration.
+    width : int
+        Number of columns in output ASCII.  A space is inserted between every
+        character so the actual output width is `width * 2 - 1`.
+    value : str or None, optional
+        Render value for polygon pixels.
+    fill : str or None, optional
+        Render value for non-polygon pixels.
+    all_touched : bool, optional
+        Enable `all_touched` rasterization.  Set to `True` if input contains
+        points or lines.
+
+    Returns
+    -------
+    str
+        ASCII representation of input features or array.
     """
 
-    a = a.astype(np.str_)
-    a = np.char.replace(a, '0', fill)
-    a = np.char.replace(a, '1', value)
+    if isinstance(ftrz, GeneratorType):
+        ftrz, ftrz_backup = itertools.tee(ftrz)
+    else:
+        ftrz_backup = ftrz
 
+    # Values that aren't a string or 1 character wide cause rendering issues
+    fill = str(fill)
+    value = str(value)
+    if len(fill) is not 1:
+        raise ValueError("Fill value must be 1 character long, not %s: `%s'" % (len(fill), fill))
+    if len(value) is not 1:
+        raise ValueError("Rasterize value must be 1 character long, not %s: `%s'" % (len(value), value))
+
+    if x_min is y_min is x_max is y_max is None:
+        coords = list(itertools.chain(*[asShape(f['geometry']).bounds for f in ftrz]))
+        x_min = min(coords[0::4])
+        y_min = min(coords[1::4])
+        x_max = max(coords[2::4])
+        y_max = max(coords[3::4])
+
+    x_delta = x_max - x_min
+    y_delta = y_max - y_min
+    cell_size = x_delta / width
+    height = int(y_delta / cell_size)
+    if height is 0:
+        height = 1
+
+    output_array = rasterize(
+        fill=0,
+        default_value=1,
+        shapes=(f['geometry'] for f in ftrz_backup),
+        out_shape=(height, width),
+        transform=affine.Affine.from_gdal(*(x_min, cell_size, 0.0, y_max, 0.0, -cell_size)),
+        all_touched=all_touched,
+        dtype=rasterio.uint8
+    )
+
+    # Convert to string dtype and do character replacements
+    output_array = output_array.astype(np.str_)
+    if fill is not None and fill != '0':
+        output_array = np.char.replace(output_array, '0', fill)
+    if value is not None and fill != '1':
+        output_array = np.char.replace(output_array, '1', value)
+
+    # np.savetxt must write to a file-like object so write and immediately read
+    # Decode bytes to string and remove the trailing newline character that numpy adds
     with BytesIO() as _a_f:
-        np.savetxt(_a_f, a, fmt='%s')
+        np.savetxt(_a_f, output_array, fmt='%s')
         _a_f.seek(0)
-        return _a_f.read().decode("utf-8")
+        return _a_f.read().decode("utf-8").strip(os.linesep)
 
 
 @click.command()
@@ -121,11 +305,20 @@ def _format_rasterized(a, fill, value):
     '--no-prompt', is_flag=True,
     help="Print all geometries without pausing in between."
 )
-def main(infile, outfile, width, layer_name, iterate, fill, value, all_touched, crs, no_prompt):
+@click.option(
+    '-p', '--properties', nargs=1, metavar='PROP,PROP,...',
+    help="When iterating over features display the specified properties above "
+         "each geometry.  Use `%all` for all."
+)
+def main(infile, outfile, width, layer_name, iterate, fill, value, all_touched, crs, no_prompt, properties):
 
     """
     Render GeoJSON on the commandline as ASCII.
     """
+
+    # If the user wants to print all properties
+    if properties not in ('%all', None):
+        properties = properties.split(',')
 
     # Make sure that fill and value are both only one character long.  Anything else and the output is weird.
     if len(fill) is not 1:
@@ -141,60 +334,23 @@ def main(infile, outfile, width, layer_name, iterate, fill, value, all_touched, 
 
         # If we're rendering all the input features wrap them in a list containing a single generator that produces
         # the geometry to save some memory.  Otherwise, just iterate over all the features normally.
-        for feat in src if iterate else [(_f['geometry'] for _f in src)]:
+        for feat in src if iterate else [(_f for _f in src)]:
 
-            # Compute the height for the entire layer if rendering all, otherwise just compute from the feature
+            # Explicitly supplying the x/y min/max when possible speeds up `render()` and eliminates an extra
+            # potentially large in-memory object
             if iterate:
-                _geom = asShape(feat['geometry'])
-                x_min, y_min, x_max, y_max = _geom.bounds
+                x_min = y_min = x_max = y_max = None
             else:
                 x_min, y_min, x_max, y_max = src.bounds
 
-            # Compute output height and cell size
-            # Some line and point datasources could yield a situation where the height is 0.  Check and adjust.
-            x_delta = x_max - x_min
-            y_delta = y_max - y_min
-            cell_size = x_delta / width
-            height = int(y_delta / cell_size)
-            if height is 0:
-                height += 1
-            transform = affine.Affine.from_gdal(*(x_min, cell_size, 0.0, y_max, 0.0, -cell_size))
+            # Get properties table, geometry ASCII, and write
+            output = os.linesep  # Blank line between prompt and output
+            if iterate and properties is not None:
+                output += dict_table(feat['properties'], keys=properties) + os.linesep
+            output += render([feat] if iterate else feat, width, value=value, fill=fill, all_touched=all_touched,
+                             x_min=x_min, y_min=y_min, x_max=x_max, y_max=y_max) + os.linesep
 
-            # If rending all then the geometries are already wrapped in a generator
-            # Otherwise stick the feature's geometry in a list so `rasterize()` has something to iterate over
-            if iterate:
-                shapes = [feat['geometry']]
-
-            else:
-                shapes = feat
-
-            rasterized = rasterize(
-                fill=0,
-                default_value=1,
-                shapes=shapes,
-                out_shape=(height, width),
-                transform=transform,
-                all_touched=all_touched,
-                dtype=rasterio.uint8
-            )
-
-            # Write the line
-            outfile.write("""
-FID: {feat_id}
-Min X: {x_min}
-Max X: {x_max}
-Min Y: {y_min}
-Max Y: {y_max}
-
-{formatted_array}
-""".format(
-                feat_id=feat['id'] if iterate else 'All',
-                x_min=x_min,
-                x_max=x_max,
-                y_min=y_min,
-                y_max=y_max,
-                formatted_array=_format_rasterized(rasterized, fill=fill, value=value)
-            ))
+            outfile.write(output + os.linesep)
 
             # If not running on python3 this is aliased to raw_input
             if iterate and not no_prompt:
