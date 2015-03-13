@@ -2,12 +2,20 @@
 
 
 """
+            _ ___                   _ _
+   ____ _  (_)__ \ ____ ___________(_|_)
+  / __ `/ / /__/ // __ `/ ___/ ___/ / /
+ / /_/ / / // __// /_/ (__  ) /__/ / /
+ \__, /_/ //____/\__,_/____/\___/_/_/
+/____/___/
+
 Render GeoJSON as ASCII on the commandline.
 """
 
 
 from __future__ import division
 
+from collections import OrderedDict
 import itertools
 from io import BytesIO
 import os
@@ -23,7 +31,7 @@ from rasterio.features import rasterize
 from shapely.geometry import asShape
 
 
-__version__ = '0.2.0'
+__version__ = '0.3.0'
 __author__ = 'Kevin Wurster'
 __email__ = 'wursterk@gmail.com'
 __source__ = 'https://github.com/geowurster/gj2ascii'
@@ -64,57 +72,38 @@ DEFAULT_VALUE = '+'
 
 
 PY3 = sys.version_info[0] == 3
-if not PY3:
+if not PY3:  # pragma no cover
     input = raw_input
     STR = unicode
     STR_TYPES = (str, unicode)
-else:
+else:  # pragma no cover
     STR = str
     STR_TYPES = (str)
 
 
-def dict_table(dictionary, keys=None):
+def dict_table(dictionary):
 
     """
-    Convert a dictionary to an ASCII formatted table.  Control output fields
-    with the `keys` parameter.
+    Convert a dictionary to an ASCII formatted table.
 
-    Example input:
-
-        {
-            'ALAND': '883338808',
-            'AWATER': 639183,
-            'CBSAFP': one,
-            'CLASSFP': 'H1',
-            'COUNTYFP': '001'
-        }
-
-    Convert all fields:
+    Example:
 
         >>> import gj2ascii
+        >>> example_dict = OrderedDict((
+        ...     ('ALAND', '883338808'),
+        ...     ('AWATER', 639183),
+        ...     ('CBSAFP', None),
+        ...     ('CLASSFP', 'H1'),
+        ...     ('COUNTYFP', '001')
+        ... ))
         >>> print(gj2ascii.dict_table(example_dict))
         +----------+-----------+
         | AWATER   |   4639183 |
-        +----------+-----------+
         | ALAND    | 883338808 |
-        +----------+-----------+
         | COUNTYFP |       001 |
-        +----------+-----------+
         | CLASSFP  |        H1 |
-        +----------+-----------+
         | CBSAFP   |      None |
         +----------+-----------+
-
-    Convert a subset of fields:
-
-        >>> import gj2ascii
-        >>> print(gj2ascii.dict_table(example_dict, keys=['COUNTYFP', 'AWATER']))
-        +----------+---------+
-        | AWATER   | 4639183 |
-        +----------+---------+
-        | COUNTYFP |     001 |
-        +----------+---------+
-
 
     Parameter
     ---------
@@ -122,15 +111,11 @@ def dict_table(dictionary, keys=None):
         Keys are
     """
 
-    if keys == '%all':
-        keys = dictionary.keys()
+    if not dictionary:
+        raise ValueError("Cannot format table - input dictionary is empty.")
 
-    # Filter dictionary and make sure it actually contains data
     # Cast everything to a string now so we don't have to do it again later
-    if keys is not None:
-        dictionary = {STR(k): STR(v) for k, v in dictionary.items() if k in keys}
-    if len(dictionary) is 0:
-        raise ValueError("Input dictionary is empty.")
+    dictionary = OrderedDict(((STR(k), STR(v)) for k, v in dictionary.items()))
 
     # Add two at the end to account for spaces around |
     prop_width = max([len(e) for e in dictionary.keys()])
@@ -147,7 +132,9 @@ def dict_table(dictionary, keys=None):
         prop_content = prop + ' ' * (prop_width - len(prop))
         value_content = ' ' * (value_width - len(value)) + value
         output.append('| ' + prop_content + ' | ' + value_content + ' |')
-        output.append(divider)
+
+    # Add trailing divider
+    output.append(divider)
     return os.linesep.join(output)
 
 
@@ -208,19 +195,18 @@ def render(ftrz, width, fill=DEFAULT_FILL, value=DEFAULT_VALUE, all_touched=Fals
     fill : str or None, optional
         Render value for non-polygon pixels.
     all_touched : bool, optional
-        Enable `all_touched` rasterization.  Set to `True` if input contains
-        points or lines.
+        Fill every 'pixel' the geometries touch instead of every pixel whose
+        center intersects the geometry.
+    x_min, y_min, x_max, y_max : float, optional
+        If reading directly from a large datasource it is advantageous to supply
+        these parameters to avoid a potentially large in-memory object and
+        expensive computation.  Must supply all or none.
 
     Returns
     -------
     str
         ASCII representation of input features or array.
     """
-
-    if isinstance(ftrz, GeneratorType):
-        ftrz, ftrz_backup = itertools.tee(ftrz)
-    else:
-        ftrz_backup = ftrz
 
     # Values that aren't a string or 1 character wide cause rendering issues
     fill = str(fill)
@@ -231,7 +217,16 @@ def render(ftrz, width, fill=DEFAULT_FILL, value=DEFAULT_VALUE, all_touched=Fals
         raise ValueError("Rasterize value must be 1 character long, not %s: `%s'" % (len(value), value))
 
     if x_min is y_min is x_max is y_max is None:
-        coords = list(itertools.chain(*[asShape(f['geometry']).bounds for f in ftrz]))
+
+        # If the input is a generator and the min/max values were not supplied we have to compute them from the
+        # features, but we need them again later and generators cannot be reset.  This potentially creates a large
+        # in-memory object so if processing an entire layer it is best to explicitly define min/max, especially
+        # because its also faster.
+        if isinstance(ftrz, GeneratorType):
+            coord_ftrz, ftrz = itertools.tee(ftrz)
+        else:
+            coord_ftrz = ftrz
+        coords = list(itertools.chain(*[asShape(f['geometry']).bounds for f in coord_ftrz]))
         x_min = min(coords[0::4])
         y_min = min(coords[1::4])
         x_max = max(coords[2::4])
@@ -247,7 +242,7 @@ def render(ftrz, width, fill=DEFAULT_FILL, value=DEFAULT_VALUE, all_touched=Fals
     output_array = rasterize(
         fill=0,
         default_value=1,
-        shapes=(f['geometry'] for f in ftrz_backup),
+        shapes=(f['geometry'] for f in ftrz),
         out_shape=(height, width),
         transform=affine.Affine.from_gdal(*(x_min, cell_size, 0.0, y_max, 0.0, -cell_size)),
         all_touched=all_touched,
@@ -287,15 +282,16 @@ def render(ftrz, width, fill=DEFAULT_FILL, value=DEFAULT_VALUE, all_touched=Fals
 )
 @click.option(
     '-f', '--fill', default=' ', metavar='CHAR',
-    help="Fill value for rasterization.  Only 1 character is allowed."
+    help="Single character for non-geometry pixels."
 )
 @click.option(
     '-v', '--value', default='+', metavar='CHAR',
-    help="Default value for rasterization.  Only 1 character is allowed."
+    help="Single character for geometry pixels."
 )
 @click.option(
     '-at', '--all-touched', is_flag=True,
-    help="Enable 'all_touched' rasterization."
+    help="Fill all pixels that intersect a geometry instead of those whose center "
+         "intersects a geometry."
 )
 @click.option(
     '--crs', metavar='DEF',
@@ -316,49 +312,66 @@ def main(infile, outfile, width, layer_name, iterate, fill, value, all_touched, 
     Render GeoJSON on the commandline as ASCII.
     """
 
-    # If the user wants to print all properties
-    if properties not in ('%all', None):
-        properties = properties.split(',')
+    try:
+        # If the user wants to print all properties
+        if properties not in ('%all', None):
+            properties = properties.split(',')
 
-    # Make sure that fill and value are both only one character long.  Anything else and the output is weird.
-    if len(fill) is not 1:
-        raise ValueError("Fill value must be 1 character long not %s: `%s'" % (len(fill), fill))
-    if len(value) is not 1:
-        raise ValueError("Rasterize value must be 1 character long, not %s: `%s'" % (len(value), value))
+        # Make sure that fill and value are both only one character long.  Anything else and the output is weird.
+        if len(fill) is not 1:
+            raise ValueError("Fill value must be 1 character long not %s: `%s'" % (len(fill), fill))
+        if len(value) is not 1:
+            raise ValueError("Rasterize value must be 1 character long, not %s: `%s'" % (len(value), value))
 
-    open_kwargs = {'layer': layer_name}
-    if crs is not None:
-        open_kwargs['crs'] = crs
+        open_kwargs = {'layer': layer_name}
+        if crs is not None:
+            open_kwargs['crs'] = crs
 
-    with fiona.open(infile, **open_kwargs) as src:
+        with fiona.open(infile, **open_kwargs) as src:
 
-        # If we're rendering all the input features wrap them in a list containing a single generator that produces
-        # the geometry to save some memory.  Otherwise, just iterate over all the features normally.
-        for feat in src if iterate else [(_f for _f in src)]:
+            # If we're rendering all the input features wrap them in a list containing a single generator that produces
+            # the geometry to save some memory.  Otherwise, just iterate over all the features normally.
+            for feat in src if iterate else [(_f for _f in src)]:
 
-            # Explicitly supplying the x/y min/max when possible speeds up `render()` and eliminates an extra
-            # potentially large in-memory object
-            if iterate:
-                x_min = y_min = x_max = y_max = None
-            else:
-                x_min, y_min, x_max, y_max = src.bounds
+                # Explicitly supplying the x/y min/max when possible speeds up `render()` and eliminates an extra
+                # potentially large in-memory object
+                if iterate:
+                    x_min = y_min = x_max = y_max = None
+                else:
+                    x_min, y_min, x_max, y_max = src.bounds
 
-            # Get properties table, geometry ASCII, and write
-            output = os.linesep  # Blank line between prompt and output
-            if iterate and properties is not None:
-                output += dict_table(feat['properties'], keys=properties) + os.linesep
-            output += render([feat] if iterate else feat, width, value=value, fill=fill, all_touched=all_touched,
-                             x_min=x_min, y_min=y_min, x_max=x_max, y_max=y_max) + os.linesep
+                # Get attributes table, geometry ASCII, and write
+                output = os.linesep  # Blank line between prompt and output
+                if iterate and properties:
 
-            outfile.write(output + os.linesep)
+                    # Given the condition: user views entire layer and specifies properties, the properties flag is
+                    # silently ignored and the
+                    try:
+                        if properties == '%all':
+                            properties = feat['properties']
+                        output += dict_table(
+                            OrderedDict(((k, v) for k, v in feat['properties'].items() if k in properties)))
+                    except ValueError:
+                        output += "Couldn't generate attribute table - invalid properties: %s" % ','.join(properties)
+                    # First is to move the cursor from the end of the table to the next line
+                    output += os.linesep + os.linesep
 
-            # If not running on python3 this is aliased to raw_input
-            if iterate and not no_prompt:
-                if input("Press enter for the next geometry or ^C/^D or 'q' to quit...") != '':  # pragma no cover
-                    break
+                output += render(
+                    [feat] if iterate else feat, width,
+                    value=value,
+                    fill=fill,
+                    all_touched=all_touched,
+                    x_min=x_min, y_min=y_min,
+                    x_max=x_max, y_max=y_max
+                ) + os.linesep
 
-    sys.exit(0)
+                outfile.write(output + os.linesep)
 
-
-if __name__ == '__main__':  # pragma no cover
-    main()
+                # If not running on python3 this is aliased to raw_input
+                if iterate and not no_prompt:
+                    if input("Press enter for the next geometry or ^C/^D or 'q' to quit...") != '':  # pragma no cover
+                        break
+        sys.exit(0)
+    except Exception as e:
+        click.echo("ERROR: Encountered an exception - %s" % repr(e), err=True)
+        sys.exit(1)
