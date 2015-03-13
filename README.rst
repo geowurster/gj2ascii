@@ -264,3 +264,9 @@ Developing
     $ pip install -r requirements-dev.txt
     $ pip install -e .
     $ nosetests --with-coverage
+
+
+License
+=======
+
+See ``LICENSE.txt``.
