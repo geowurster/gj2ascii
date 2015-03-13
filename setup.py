@@ -44,11 +44,15 @@ setuptools.setup(
     author=author,
     author_email=email,
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
-        'Topic :: Text Processing :: Filters',
-        'Topic :: Text Processing :: General',
+        'Intended Audience :: Information Technology',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
+        'Topic :: Multimedia :: Graphics :: Presentation',
+        'Topic :: Scientific/Engineering :: GIS',
         'Topic :: Utilities'
     ],
     description="Render GeoJSON as ASCII on the commandline.",
