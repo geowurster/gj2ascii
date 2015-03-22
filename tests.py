@@ -252,11 +252,13 @@ class TestDictTable(unittest.TestCase):
 
 class TestRender(unittest.TestCase):
 
-    def test_bad_fill_and_value(self):
+    def test_exception(self):
         with self.assertRaises(ValueError):
             gj2ascii.render([], None, fill='asdf')
         with self.assertRaises(ValueError):
             gj2ascii.render([], None, value='asdf')
+        with self.assertRaises(ValueError):
+            gj2ascii.render([], width=-1)
 
     def test_compare_min_max_given_vs_compute_and_as_generator(self):
         # Easiest to compare these 3 things together since they are related
@@ -269,6 +271,12 @@ class TestRender(unittest.TestCase):
             # automatically and iterated over the second time.
             generator_output = gj2ascii.render((f for f in src), 15)
         self.assertEqual(given, computed, generator_output)
+
+    def test_with_fiona(self):
+        with fiona.open(POLY_FILE) as src:
+            kwargs = dict(zip(('x_min', 'y_min', 'x_max', 'y_max'), src.bounds))
+            r = gj2ascii.render(src, width=20, fill='.', value='+', **kwargs)
+            self.assertEqual(EXPECTED_POLYGON_20_WIDE.strip(), r.strip())
 
 
 class TestCli(unittest.TestCase):
@@ -316,14 +324,14 @@ class TestCli(unittest.TestCase):
     def test_bad_fill_value(self):
         result = self.runner.invoke(gj2ascii.main, ['-v toolong', POLY_FILE])
         self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.startswith('ERROR')
-                        and 'exception' in result.output and 'ValueError' in result.output and 'Value' in result.output)
+        self.assertTrue(result.output.startswith('ERROR') and
+                        'exception' in result.output and 'ValueError' in result.output and 'Value' in result.output)
 
     def test_bad_rasterize_value(self):
         result = self.runner.invoke(gj2ascii.main, ['-f toolong', POLY_FILE])
         self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.startswith('ERROR')
-                        and 'exception' in result.output and 'ValueError' in result.output and 'Fill' in result.output)
+        self.assertTrue(result.output.startswith('ERROR') and
+                        'exception' in result.output and 'ValueError' in result.output and 'Fill' in result.output)
 
     def test_different_width(self):
         fill = '+'
@@ -374,6 +382,71 @@ class TestCli(unittest.TestCase):
         self.assertNotEqual(result.exit_code, 0)
         self.assertTrue(
             result.output.startswith('ERROR:') and 'exception' in result.output and 'ValueError' in result.output)
+
+
+class TestGeometryExtractor(unittest.TestCase):
+
+    def setUp(self):
+
+        class GIFeature(object):
+            __geo_interface__ = {
+                'type': 'Feature',
+                'properties': {},
+                'geometry': {
+                    'type': 'Point',
+                    'coordinates': [10, 20, 30]
+                }
+            }
+        self.gi_feature = GIFeature()
+
+        class GIGeometry(object):
+            __geo_interface__ = {
+                'type': 'Polygon',
+                'coordinates': [[(1.23, -56.5678), (4.897, 20.937), (9.9999999, -23.45)]]
+            }
+        self.gi_geometry = GIGeometry()
+
+        self.feature = {
+            'type': 'Feature',
+            'properties': {},
+            'geometry': {
+                'type': 'Line',
+                'coordinates': ((1.23, -67.345), (87.12354, -23.4555), (123.876, -78.9444))
+            }
+        }
+
+        self.geometry = {
+            'type': 'Point',
+            'coordinates': (0, 0, 10)
+        }
+
+    def test_exceptions(self):
+        with self.assertRaises(TypeError):
+            next(gj2ascii._geometry_extractor([{'type': None}]))
+
+    def test_single_object(self):
+        self.assertDictEqual(self.geometry, next(gj2ascii._geometry_extractor(self.geometry)))
+        self.assertDictEqual(self.feature['geometry'], next(gj2ascii._geometry_extractor(self.feature)))
+        self.assertDictEqual(
+            self.gi_feature.__geo_interface__['geometry'], next(gj2ascii._geometry_extractor(self.gi_feature)))
+        self.assertDictEqual(self.gi_geometry.__geo_interface__, next(gj2ascii._geometry_extractor(self.gi_geometry)))
+
+    def test_multiple_homogeneous(self):
+        for item in gj2ascii._geometry_extractor((self.geometry, self.geometry, self.geometry)):
+            self.assertDictEqual(item, self.geometry)
+        for item in gj2ascii._geometry_extractor((self.feature, self.feature, self.feature)):
+            self.assertDictEqual(item, self.feature['geometry'])
+        for item in gj2ascii._geometry_extractor((self.gi_geometry, self.gi_geometry, self.gi_geometry)):
+            self.assertDictEqual(item, self.gi_geometry.__geo_interface__)
+        for item in gj2ascii._geometry_extractor((self.gi_feature, self.gi_feature, self.gi_feature)):
+            self.assertDictEqual(item, self.gi_feature.__geo_interface__['geometry'])
+
+    def test_multiple_heterogeneous(self):
+        input_objects = (self.geometry, self.feature, self.gi_feature, self.gi_geometry)
+        expected = (self.geometry, self.feature['geometry'], self.gi_feature.__geo_interface__['geometry'],
+                    self.gi_geometry.__geo_interface__)
+        for expected, actual in zip(expected, gj2ascii._geometry_extractor(input_objects)):
+            self.assertDictEqual(expected, actual)
 
 
 if __name__ == '__main__':

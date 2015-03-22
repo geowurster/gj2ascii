@@ -154,6 +154,35 @@ Some Linux distributions require an additional step before installing rasterio:
 API
 ===
 
+Read data with `Fiona <https://github.com/toblerity/fiona>`__ but when possible
+be sure to populate `x_min`, `y_min`, `x_max`, and `y_max` to avoid a potentially
+expensive computation and large in-memory object:
+
+.. code-block:: python
+
+    import fiona
+    import gj2ascii
+    with fiona.open('sample-data/polygons.geojson') as src:
+        kwargs = dict(zip(('x_min', 'y_min', 'x_max', 'y_max'), src.bounds))
+        print(gj2ascii.render(src, width=20, **kwargs))
+      +                       +
+      + + +
+          +
+                              +
+                      +
+                      + +
+                      + + + +
+                        + + + +
+                          + + +         +
+    + + +                   + +       + + +
+    + + + +                         + + + +
+        +             +               + +
+                    + +                 +
+                  + + +                 +
+                + + + +
+                + + + +
+                    + +
+
 Render an entire layer:
 
 .. code-block:: python
@@ -191,7 +220,7 @@ Render a single feature:
     import gj2ascii
     with open('sample-data/lines.geojson') as f:
         features = json.load(f)
-        ascii = gj2ascii.render([features['features'][0]], 15)
+        ascii = gj2ascii.render(next(features['features']), 15)
     print(ascii)
                   + + + + + + +
     + + + + + + +

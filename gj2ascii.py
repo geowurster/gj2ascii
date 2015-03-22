@@ -29,6 +29,7 @@ import numpy as np
 import rasterio
 from rasterio.features import rasterize
 from shapely.geometry import asShape
+from shapely.geometry import mapping
 
 
 __version__ = '0.3.1'
@@ -69,6 +70,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 DEFAULT_FILL = ' '
 DEFAULT_VALUE = '+'
+DEFAULT_WIDTH = 40
 
 
 PY3 = sys.version_info[0] == 3
@@ -138,11 +140,48 @@ def dict_table(dictionary):
     return os.linesep.join(output)
 
 
-def render(ftrz, width, fill=DEFAULT_FILL, value=DEFAULT_VALUE, all_touched=False,
+def _geometry_extractor(ftrz):
+
+    """
+    A generator that yields GeoJSON geometry objects extracted from various
+    input types.
+
+    Parameters
+    ----------
+    ftrz : dict or iterator
+        Can be a single GeoJSON feature, geometry, object with a `__geo_interface__`
+        method, or an iterable producing one of those types per iteration.
+
+    Yields
+    ------
+    dict
+        A GeoJSON geometry.
+
+    Raises
+    ------
+    TypeError
+        Geometry could not be extracted from an input object.
+    """
+
+    if isinstance(ftrz, dict) or hasattr(ftrz, '__geo_interface__'):
+        ftrz = [ftrz]
+    for obj in ftrz:
+        if hasattr(obj, '__geo_interface__'):
+            obj = mapping(obj)
+        if obj['type'] == 'Feature':
+            yield obj['geometry']
+        elif 'coordinates' in obj:
+            yield obj
+        else:
+            raise TypeError("An input object isn't a feature, geometry, or object with __geo_interface__ method")
+
+
+def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, value=DEFAULT_VALUE, all_touched=False,
            x_min=None, x_max=None, y_min=None, y_max=None):
 
     """
-    Convert GeoJSON features to their ASCII representation.
+    Convert GeoJSON features, geometries, or objects supporting `__geo_interface__`
+    to their ASCII representation.
 
     Render all example:
 
@@ -169,8 +208,7 @@ def render(ftrz, width, fill=DEFAULT_FILL, value=DEFAULT_VALUE, all_touched=Fals
         >>> import gj2ascii
         >>> import fiona
         >>> with fiona.open('sample-data/polygons.geojson') as src:
-        ...     feat = [next(src)]  # Wrap in a list so its iterable
-        ...     print(gj2ascii.render(feat, 15, fill='.', value='*'))
+        ...     print(gj2ascii.render(next(src), 15, fill='.', value='*'))
                   +
               + +
         + + + + +
@@ -185,11 +223,12 @@ def render(ftrz, width, fill=DEFAULT_FILL, value=DEFAULT_VALUE, all_touched=Fals
 
     Parameters
     ----------
-    ftrz : iter
-        An iterable object producing one GeoJSON feature per iteration.
+    ftrz : dict or iterator
+        Can be a single GeoJSON feature, geometry, object with a `__geo_interface__`
+        method, or an iterable producing one of those types per iteration.
     width : int
         Number of columns in output ASCII.  A space is inserted between every
-        character so the actual output width is `width * 2 - 1`.
+        character so the actual output width is `(width * 2) - 1`.
     value : str or None, optional
         Render value for polygon pixels.
     fill : str or None, optional
@@ -215,6 +254,8 @@ def render(ftrz, width, fill=DEFAULT_FILL, value=DEFAULT_VALUE, all_touched=Fals
         raise ValueError("Fill value must be 1 character long, not %s: `%s'" % (len(fill), fill))
     if len(value) is not 1:
         raise ValueError("Rasterize value must be 1 character long, not %s: `%s'" % (len(value), value))
+    if width <= 0:
+        raise ValueError("Invalid width `%s' - must be > 0" % width)
 
     if x_min is y_min is x_max is y_max is None:
 
@@ -226,7 +267,7 @@ def render(ftrz, width, fill=DEFAULT_FILL, value=DEFAULT_VALUE, all_touched=Fals
             coord_ftrz, ftrz = itertools.tee(ftrz)
         else:
             coord_ftrz = ftrz
-        coords = list(itertools.chain(*[asShape(f['geometry']).bounds for f in coord_ftrz]))
+        coords = list(itertools.chain(*[asShape(g).bounds for g in _geometry_extractor(coord_ftrz)]))
         x_min = min(coords[0::4])
         y_min = min(coords[1::4])
         x_max = max(coords[2::4])
@@ -242,7 +283,7 @@ def render(ftrz, width, fill=DEFAULT_FILL, value=DEFAULT_VALUE, all_touched=Fals
     output_array = rasterize(
         fill=0,
         default_value=1,
-        shapes=(f['geometry'] for f in ftrz),
+        shapes=(g for g in _geometry_extractor(ftrz)),
         out_shape=(height, width),
         transform=affine.Affine.from_gdal(*(x_min, cell_size, 0.0, y_max, 0.0, -cell_size)),
         all_touched=all_touched,
@@ -273,8 +314,9 @@ def render(ftrz, width, fill=DEFAULT_FILL, value=DEFAULT_VALUE, all_touched=Fals
     help="Specify input layer for multi-layer datasources."
 )
 @click.option(
-    '-w', '--width', type=click.INT, default=40,
-    help="Render geometry with N rows and columns."
+    '-w', '--width', type=click.INT, default=DEFAULT_WIDTH,
+    help="Render geometry across N columns.  Note that a space is inserted "
+         "between each column so the actual number of columns is `(width * 2) - 1`"
 )
 @click.option(
     '-i', '--iterate', is_flag=True,
@@ -302,7 +344,7 @@ def render(ftrz, width, fill=DEFAULT_FILL, value=DEFAULT_VALUE, all_touched=Fals
     help="Print all geometries without pausing in between."
 )
 @click.option(
-    '-p', '--properties', nargs=1, metavar='PROP,PROP,...',
+    '-p', '--properties', metavar='PROP,PROP,...',
     help="When iterating over features display the specified properties above "
          "each geometry.  Use `%all` for all."
 )
@@ -310,6 +352,27 @@ def main(infile, outfile, width, layer_name, iterate, fill, value, all_touched, 
 
     """
     Render GeoJSON on the commandline as ASCII.
+
+    \b
+    Examples:
+    \b
+        Render the entire layer in a block 20 pixels wide:
+    \b
+            $ gj2ascii ${INFILE} --width 20
+    \b
+        Read from stdin and fill all pixels that intersect a geometry:
+    \b
+            $ cat ${INFILE} | gj2ascii - \\
+                --width 15 \\
+                --all-touched
+    \b
+        Render individual features across 10 pixels and display the attributes
+        for two fields:
+    \b
+            $ gj2ascii ${INFILE} \\
+                --properties ${PROP1},${PROP2}  \\
+                --width 10 \\
+                --iterate
     """
 
     try:
