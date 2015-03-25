@@ -10,6 +10,50 @@
 /____/___/
 
 Render GeoJSON as ASCII on the commandline.
+
+    $ gj2ascii ${INFILE} -w 20
+
+      +                       +
+      + + +
+          +
+                              +
+                      +
+                      + +
+                      + + + +
+                        + + + +
+                          + + +         +
+    + + +                   + +       + + +
+    + + + +                         + + + +
+        +             +               + +
+                    + +                 +
+                  + + +                 +
+                + + + +
+                + + + +
+                    + +
+
+
+>>> import gj2ascii
+>>> import fiona
+>>> with fiona.open(infile) as src:
+...     kwargs = dict(zip(('x_min', 'y_min', 'x_max', 'y_max'), src.bounds))
+...     print(gj2ascii.render(src, width=20, **kwargs))
+  +                       +
+  + + +
+      +
+                          +
+                  +
+                  + +
+                  + + + +
+                    + + + +
+                      + + +         +
++ + +                   + +       + + +
++ + + +                         + + + +
+    +             +               + +
+                + +                 +
+              + + +                 +
+            + + + +
+            + + + +
+                + +
 """
 
 
@@ -21,6 +65,7 @@ from io import BytesIO
 import os
 import sys
 from types import GeneratorType
+import warnings
 
 import affine
 import click
@@ -83,7 +128,7 @@ else:  # pragma no cover
     STR_TYPES = (str)
 
 
-def dict_table(dictionary):
+def dict2table(dictionary):
 
     """
     Convert a dictionary to an ASCII formatted table.
@@ -98,7 +143,7 @@ def dict_table(dictionary):
         ...     ('CLASSFP', 'H1'),
         ...     ('COUNTYFP', '001')
         ... ))
-        >>> print(gj2ascii.dict_table(example_dict))
+        >>> print(gj2ascii.dict2table(example_dict))
         +----------+-----------+
         | AWATER   |   4639183 |
         | ALAND    | 883338808 |
@@ -138,6 +183,18 @@ def dict_table(dictionary):
     # Add trailing divider
     output.append(divider)
     return os.linesep.join(output)
+
+
+def dict_table(*args):
+
+    """
+    Deprecated alias for `dict2table()`.  Will be removed before 1.0.
+    """
+
+    warnings.warn("Function `dict_table()` is deprecated and will be removed "
+                  "before 1.0 - use `dict2table().")
+
+    return dict2table(*args)
 
 
 def _geometry_extractor(ftrz):
@@ -305,6 +362,37 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, value=DEFAULT_VALUE, al
         return _a_f.read().decode("utf-8").strip(os.linesep)
 
 
+def paginate(ftrz, properties=None, **kwargs):
+
+    """
+    Generator to create paginated output for individual features - also handles
+    attribute table formatting via the `properties` argument.  Primarily used
+    by the CLI.
+
+    Properties
+    ----------
+    ftrz : dict or iterator
+        Anything accepted by `render()`.
+    properties : list or None, optional
+        Display a table with the specified properties above the geometry.
+    kwargs : **kwargs, optional
+        Additional keyword arguments for `render()`.
+
+    Yields
+    ------
+    str
+        One feature (with attribute table if specified) as ascii.
+    """
+
+    for item in ftrz:
+        output = []
+        if properties is not None:
+            output.append(
+                dict2table(OrderedDict((k, item['properties'][k]) for k in properties)))
+        output.append(render(item, **kwargs))
+        yield os.linesep.join(output) + os.linesep
+
+
 @click.command()
 @click.version_option(version=__version__)
 @click.argument('infile')
@@ -380,7 +468,7 @@ def main(infile, outfile, width, layer_name, iterate, fill, value, all_touched, 
         if properties not in ('%all', None):
             properties = properties.split(',')
 
-        # Make sure that fill and value are both only one character long.  Anything else and the output is weird.
+        # Make sure that fill and value are both only one character long otherwise the output is distorted
         if len(fill) is not 1:
             raise ValueError("Fill value must be 1 character long not %s: `%s'" % (len(fill), fill))
         if len(value) is not 1:
@@ -412,7 +500,7 @@ def main(infile, outfile, width, layer_name, iterate, fill, value, all_touched, 
                     try:
                         if properties == '%all':
                             properties = feat['properties']
-                        output += dict_table(
+                        output += dict2table(
                             OrderedDict(((k, v) for k, v in feat['properties'].items() if k in properties)))
                     except ValueError:
                         output += "Couldn't generate attribute table - invalid properties: %s" % ','.join(properties)
