@@ -69,7 +69,7 @@ import warnings
 
 import affine
 import click
-import fiona
+import fiona as fio
 import numpy as np
 import rasterio
 from rasterio.features import rasterize
@@ -120,7 +120,6 @@ DEFAULT_WIDTH = 40
 
 PY3 = sys.version_info[0] == 3
 if not PY3:  # pragma no cover
-    input = raw_input
     STR = unicode
     STR_TYPES = (str, unicode)
 else:  # pragma no cover
@@ -169,6 +168,7 @@ def dict2table(dictionary):
     value_width = max([len(e) for e in dictionary.values()])
 
     # Add 2 to the prop/value width to account for the single space padding around the properties and values
+    # +----------+-------+
     # | Property | Value |
     #  ^        ^ ^     ^
     # We don't need it later so only add it here
@@ -182,6 +182,7 @@ def dict2table(dictionary):
 
     # Add trailing divider
     output.append(divider)
+
     return os.linesep.join(output)
 
 
@@ -192,7 +193,7 @@ def dict_table(*args):
     """
 
     warnings.warn("Function `dict_table()` is deprecated and will be removed "
-                  "before 1.0 - use `dict2table().")
+                  "before 1.0 - use `dict2table()` instead.")
 
     return dict2table(*args)
 
@@ -385,11 +386,15 @@ def paginate(ftrz, properties=None, **kwargs):
     """
 
     for item in ftrz:
+
         output = []
+
         if properties is not None:
             output.append(
-                dict2table(OrderedDict((k, item['properties'][k]) for k in properties)))
+                dict2table(OrderedDict((p, item['properties'][p]) for p in properties)))
+
         output.append(render(item, **kwargs))
+
         yield os.linesep.join(output) + os.linesep
 
 
@@ -432,7 +437,7 @@ def paginate(ftrz, properties=None, **kwargs):
     help="Print all geometries without pausing in between."
 )
 @click.option(
-    '-p', '--properties', metavar='PROP,PROP,...',
+    '-p', '--properties', metavar='NAME,NAME,...',
     help="When iterating over features display the specified properties above "
          "each geometry.  Use `%all` for all."
 )
@@ -474,55 +479,35 @@ def main(infile, outfile, width, layer_name, iterate, fill, value, all_touched, 
         if len(value) is not 1:
             raise ValueError("Rasterize value must be 1 character long, not %s: `%s'" % (len(value), value))
 
-        open_kwargs = {'layer': layer_name}
-        if crs is not None:
-            open_kwargs['crs'] = crs
+        with fio.open(infile, layer=layer_name, crs=crs) as src:
 
-        with fiona.open(infile, **open_kwargs) as src:
+            if iterate:
 
-            # If we're rendering all the input features wrap them in a list containing a single generator that produces
-            # the geometry to save some memory.  Otherwise, just iterate over all the features normally.
-            for feat in src if iterate else [(_f for _f in src)]:
+                if properties == '%all':
+                    properties = src.schema['properties'].keys()
+                elif properties is not None:
+                    for prop in properties:
+                        if prop not in src.schema['properties']:
+                            raise ValueError("Property '%s' not in source properties: `%s'"
+                                             % (prop, ', '.join(src.schema['properties'])))
 
-                # Explicitly supplying the x/y min/max when possible speeds up `render()` and eliminates an extra
-                # potentially large in-memory object
-                if iterate:
-                    x_min = y_min = x_max = y_max = None
-                else:
-                    x_min, y_min, x_max, y_max = src.bounds
+                for feature in paginate(
+                        src, width=width, fill=fill, value=value, properties=properties, all_touched=all_touched):
 
-                # Get attributes table, geometry ASCII, and write
-                output = os.linesep  # Blank line between prompt and output
-                if iterate and properties:
+                    outfile.write(feature)
 
-                    # Given the condition: user views entire layer and specifies properties, the properties flag is
-                    # silently ignored and the
-                    try:
-                        if properties == '%all':
-                            properties = feat['properties']
-                        output += dict2table(
-                            OrderedDict(((k, v) for k, v in feat['properties'].items() if k in properties)))
-                    except ValueError:
-                        output += "Couldn't generate attribute table - invalid properties: %s" % ','.join(properties)
-                    # First is to move the cursor from the end of the table to the next line
-                    output += os.linesep + os.linesep
+                    if not no_prompt and click.prompt(
+                            "Press enter for next feature or 'q + enter' to exit", default='', show_default=False) != '':
 
-                output += render(
-                    [feat] if iterate else feat, width,
-                    value=value,
-                    fill=fill,
-                    all_touched=all_touched,
-                    x_min=x_min, y_min=y_min,
-                    x_max=x_max, y_max=y_max
-                ) + os.linesep
+                        raise click.Abort("User stopped feature iteration.")
 
-                outfile.write(output + os.linesep)
+            else:
+                kwargs = dict(zip(('x_min', 'y_min', 'x_max', 'y_max'), src.bounds))
+                kwargs.update(all_touched=all_touched)
+                outfile.write(render(src, width=width, fill=fill, value=value, **kwargs))
 
-                # If not running on python3 this is aliased to raw_input
-                if iterate and not no_prompt:
-                    if input("Press enter for the next geometry or ^C/^D or 'q' to quit...") != '':  # pragma no cover
-                        break
         sys.exit(0)
+
     except Exception as e:
         click.echo("ERROR: Encountered an exception - %s" % repr(e), err=True)
         sys.exit(1)
