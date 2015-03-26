@@ -6,6 +6,7 @@ Setup script for gj2ascii
 """
 
 
+import os
 import setuptools
 
 
@@ -25,7 +26,7 @@ version = None
 author = None
 email = None
 source = None
-with open('gj2ascii.py') as f:
+with open(os.path.join('gj2ascii', '__init__.py')) as f:
     for line in f:
         if line.strip().startswith('__version__'):
             version = line.split('=')[1].strip().replace('"', '').replace("'", '')
@@ -58,7 +59,7 @@ setuptools.setup(
     description="Render GeoJSON as ASCII on the commandline.",
     entry_points="""
         [console_scripts]
-        gj2ascii=gj2ascii:main
+        gj2ascii=gj2ascii.cli:main
     """,
     include_package_data=True,
     install_requires=install_requires,

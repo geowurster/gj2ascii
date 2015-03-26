@@ -1,59 +1,5 @@
-#!/usr/bin/env python
-
-
 """
-            _ ___                   _ _
-   ____ _  (_)__ \ ____ ___________(_|_)
-  / __ `/ / /__/ // __ `/ ___/ ___/ / /
- / /_/ / / // __// /_/ (__  ) /__/ / /
- \__, /_/ //____/\__,_/____/\___/_/_/
-/____/___/
-
-Render GeoJSON as ASCII on the commandline.
-
-    $ gj2ascii ${INFILE} -w 20
-
-      +                       +
-      + + +
-          +
-                              +
-                      +
-                      + +
-                      + + + +
-                        + + + +
-                          + + +         +
-    + + +                   + +       + + +
-    + + + +                         + + + +
-        +             +               + +
-                    + +                 +
-                  + + +                 +
-                + + + +
-                + + + +
-                    + +
-
-
->>> import gj2ascii
->>> import fiona
->>> with fiona.open(infile) as src:
-...     kwargs = dict(zip(('x_min', 'y_min', 'x_max', 'y_max'), src.bounds))
-...     print(gj2ascii.render(src, width=20, **kwargs))
-  +                       +
-  + + +
-      +
-                          +
-                  +
-                  + +
-                  + + + +
-                    + + + +
-                      + + +         +
-+ + +                   + +       + + +
-+ + + +                         + + + +
-    +             +               + +
-                + +                 +
-              + + +                 +
-            + + + +
-            + + + +
-                + +
+Core components for gj2ascii
 """
 
 
@@ -68,8 +14,6 @@ from types import GeneratorType
 import warnings
 
 import affine
-import click
-import fiona as fio
 import numpy as np
 import rasterio
 from rasterio.features import rasterize
@@ -77,54 +21,23 @@ from shapely.geometry import asShape
 from shapely.geometry import mapping
 
 
-__version__ = '0.3.1'
-__author__ = 'Kevin Wurster'
-__email__ = 'wursterk@gmail.com'
-__source__ = 'https://github.com/geowurster/gj2ascii'
-__license__ = '''
-New BSD License
-
-Copyright (c) 2015, Kevin D. Wurster
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-* Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
-
-* Redistributions in binary form must reproduce the above copyright notice,
-  this list of conditions and the following disclaimer in the documentation
-  and/or other materials provided with the distribution.
-
-* The names of its contributors may not be used to endorse or promote products
-  derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-'''
+__all__ = ['render', 'dict2table', 'dict_table', 'paginate', 'DEFAULT_WIDTH', 'DEFAULT_FILL', 'DEFAULT_VALUE']
 
 
 DEFAULT_FILL = ' '
 DEFAULT_VALUE = '+'
 DEFAULT_WIDTH = 40
+DEFAULT_RAMP = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '#', '@', '0', '=', '-', '%', '$']
 
 
-PY3 = sys.version_info[0] == 3
-if not PY3:  # pragma no cover
+if not sys.version_info[0] >= 3:  # pragma no cover
     STR = unicode
     STR_TYPES = (str, unicode)
+    zip_longest = itertools.zip_longest
 else:  # pragma no cover
     STR = str
     STR_TYPES = (str)
+    zip_longest = itertools.izip_longest
 
 
 def dict2table(dictionary):
@@ -231,7 +144,27 @@ def _geometry_extractor(ftrz):
         elif 'coordinates' in obj:
             yield obj
         else:
-            raise TypeError("An input object isn't a feature, geometry, or object with __geo_interface__ method")
+            raise TypeError("An input object isn't a feature, geometry, or object supporting __geo_interface__")
+
+
+def stack(rendered_layers, values=DEFAULT_RAMP, fill=None):
+
+    if len(rendered_layers) > len(rendered_layers):
+        raise ValueError("Received %s layers but only %s values" % (len(rendered_layers), len(values)))
+
+    for rows in zip_longest(*[_l.splitlines() for _l in rendered_layers]):
+        if None in rows:
+            raise ValueError("Input layers have differing shapes")
+
+    output = []
+    for row in zip(*[_l.splitlines() for _l in rendered_layers]):
+        o_row = []
+        for chars in zip(*row):
+            f = [_c for _c in chars if _c != ' ']
+            o_row.append(f[-1] if len(f) is not 0 else ' ')
+        output.append(''.join(o_row))
+
+    return os.linesep.join(output)
 
 
 def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, value=DEFAULT_VALUE, all_touched=False,
@@ -398,116 +331,3 @@ def paginate(ftrz, properties=None, **kwargs):
         yield os.linesep.join(output) + os.linesep
 
 
-@click.command()
-@click.version_option(version=__version__)
-@click.argument('infile')
-@click.argument('outfile', type=click.File(mode='w'), default='-')
-@click.option(
-    '-l', '--layer', 'layer_name', metavar='NAME',
-    help="Specify input layer for multi-layer datasources."
-)
-@click.option(
-    '-w', '--width', type=click.INT, default=DEFAULT_WIDTH,
-    help="Render geometry across N columns.  Note that a space is inserted "
-         "between each column so the actual number of columns is `(width * 2) - 1`"
-)
-@click.option(
-    '-i', '--iterate', is_flag=True,
-    help="Iterate over input features and display each individually."
-)
-@click.option(
-    '-f', '--fill', default=' ', metavar='CHAR',
-    help="Single character for non-geometry pixels."
-)
-@click.option(
-    '-v', '--value', default='+', metavar='CHAR',
-    help="Single character for geometry pixels."
-)
-@click.option(
-    '-at', '--all-touched', is_flag=True,
-    help="Fill all pixels that intersect a geometry instead of those whose center "
-         "intersects a geometry."
-)
-@click.option(
-    '--crs', metavar='DEF',
-    help="Specify input CRS."
-)
-@click.option(
-    '--no-prompt', is_flag=True,
-    help="Print all geometries without pausing in between."
-)
-@click.option(
-    '-p', '--properties', metavar='NAME,NAME,...',
-    help="When iterating over features display the specified properties above "
-         "each geometry.  Use `%all` for all."
-)
-def main(infile, outfile, width, layer_name, iterate, fill, value, all_touched, crs, no_prompt, properties):
-
-    """
-    Render GeoJSON on the commandline as ASCII.
-
-    \b
-    Examples:
-    \b
-        Render the entire layer in a block 20 pixels wide:
-    \b
-            $ gj2ascii ${INFILE} --width 20
-    \b
-        Read from stdin and fill all pixels that intersect a geometry:
-    \b
-            $ cat ${INFILE} | gj2ascii - \\
-                --width 15 \\
-                --all-touched
-    \b
-        Render individual features across 10 pixels and display the attributes
-        for two fields:
-    \b
-            $ gj2ascii ${INFILE} \\
-                --properties ${PROP1},${PROP2}  \\
-                --width 10 \\
-                --iterate
-    """
-
-    try:
-        # If the user wants to print all properties
-        if properties not in ('%all', None):
-            properties = properties.split(',')
-
-        # Make sure that fill and value are both only one character long otherwise the output is distorted
-        if len(fill) is not 1:
-            raise ValueError("Fill value must be 1 character long not %s: `%s'" % (len(fill), fill))
-        if len(value) is not 1:
-            raise ValueError("Rasterize value must be 1 character long, not %s: `%s'" % (len(value), value))
-
-        with fio.open(infile, layer=layer_name, crs=crs) as src:
-
-            if iterate:
-
-                if properties == '%all':
-                    properties = src.schema['properties'].keys()
-                elif properties is not None:
-                    for prop in properties:
-                        if prop not in src.schema['properties']:
-                            raise ValueError("Property '%s' not in source properties: `%s'"
-                                             % (prop, ', '.join(src.schema['properties'])))
-
-                for feature in paginate(
-                        src, width=width, fill=fill, value=value, properties=properties, all_touched=all_touched):
-
-                    outfile.write(feature)
-
-                    if not no_prompt and click.prompt(
-                            "Press enter for next feature or 'q + enter' to exit", default='', show_default=False) != '':
-
-                        raise click.Abort("User stopped feature iteration.")
-
-            else:
-                kwargs = dict(zip(('x_min', 'y_min', 'x_max', 'y_max'), src.bounds))
-                kwargs.update(all_touched=all_touched)
-                outfile.write(render(src, width=width, fill=fill, value=value, **kwargs))
-
-        sys.exit(0)
-
-    except Exception as e:
-        click.echo("ERROR: Encountered an exception - %s" % repr(e), err=True)
-        sys.exit(1)

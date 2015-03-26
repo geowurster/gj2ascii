@@ -1,3 +1,4 @@
+setuptools
 click
 numpy
 rasterio
