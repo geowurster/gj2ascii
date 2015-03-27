@@ -21,7 +21,10 @@ from shapely.geometry import asShape
 from shapely.geometry import mapping
 
 
-__all__ = ['render', 'dict2table', 'dict_table', 'paginate', 'DEFAULT_WIDTH', 'DEFAULT_FILL', 'DEFAULT_VALUE']
+__all__ = [
+    'render', 'stack', 'dict2table', 'dict_table', 'paginate',
+    'DEFAULT_WIDTH', 'DEFAULT_FILL', 'DEFAULT_VALUE', 'DEFAULT_RAMP'
+]
 
 
 DEFAULT_FILL = ' '
@@ -30,13 +33,13 @@ DEFAULT_WIDTH = 40
 DEFAULT_RAMP = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '#', '@', '0', '=', '-', '%', '$']
 
 
-if not sys.version_info[0] >= 3:  # pragma no cover
-    STR = unicode
-    STR_TYPES = (str, unicode)
+if sys.version_info[0] >= 3:  # pragma no cover
+    string_types = str,
+    text_type = str
     zip_longest = itertools.zip_longest
 else:  # pragma no cover
-    STR = str
-    STR_TYPES = (str)
+    string_types = basestring,
+    text_type = unicode
     zip_longest = itertools.izip_longest
 
 
@@ -74,7 +77,7 @@ def dict2table(dictionary):
         raise ValueError("Cannot format table - input dictionary is empty.")
 
     # Cast everything to a string now so we don't have to do it again later
-    dictionary = OrderedDict(((STR(k), STR(v)) for k, v in dictionary.items()))
+    dictionary = OrderedDict(((text_type(k), text_type(v)) for k, v in dictionary.items()))
 
     # Add two at the end to account for spaces around |
     prop_width = max([len(e) for e in dictionary.keys()])
@@ -88,7 +91,7 @@ def dict2table(dictionary):
     divider = ''.join(['+', '-' * (prop_width + 2), '+', '-' * (value_width + 2), '+'])
     output = [divider]
     for prop, value in dictionary.items():
-        value = STR(value)
+        value = text_type(value)
         prop_content = prop + ' ' * (prop_width - len(prop))
         value_content = ' ' * (value_width - len(value)) + value
         output.append('| ' + prop_content + ' | ' + value_content + ' |')
@@ -147,28 +150,75 @@ def _geometry_extractor(ftrz):
             raise TypeError("An input object isn't a feature, geometry, or object supporting __geo_interface__")
 
 
-def stack(rendered_layers, values=DEFAULT_RAMP, fill=None):
+def stack(rendered_layers, fill=DEFAULT_FILL):
 
-    if len(rendered_layers) > len(rendered_layers):
-        raise ValueError("Received %s layers but only %s values" % (len(rendered_layers), len(values)))
+    """
+    Render a stack of input layers into a single overlapping product.  Layers
+    are drawn in input order so the first layer will be on the bottom and the
+    last layer will be on the top.
 
-    for rows in zip_longest(*[_l.splitlines() for _l in rendered_layers]):
-        if None in rows:
-            raise ValueError("Input layers have differing shapes")
+    Example:
 
-    output = []
-    for row in zip(*[_l.splitlines() for _l in rendered_layers]):
+        # Rendered layer 1
+        * * * * *
+            *
+        * * * * *
+
+        # Rendered layer 2
+        +       +
+
+        +       +
+
+        >>> import gj2ascii
+        >>> layer1 = gj2ascii.render(geom1, width=5, value='*')
+        >>> layer2 = gj2ascii.render(geom2, width=5, value='+')
+        >>> layers = [layer1, layer2]
+        >>> print(gj2ascii.stack(layers, fill='.'))
+        + * * * +
+        . . * . .
+        + * * * +
+
+    Parameters
+    ----------
+    rendered_layers : iterable
+        An iterable producing one rendered layer per iteration.  Layers must
+        all have the same dimension and must have been rendered with an empty
+        space (' ') as the fill value.  Using the same `bbox` and `width` values
+        for `render()` when preparing input layers helps ensure layers have
+        matching dimensions.
+    fill : str, optional
+        A new fill value for the rendered stack.  Must be a single character.
+
+    Returns
+    -------
+    str
+        All stacked layers rendered into a single ASCII representation with the
+        first input layer on the bottom and the last on top.
+    """
+
+    fill = str(fill)
+    if len(fill) is not 1:
+        raise ValueError("Invalid fill value `%s' - must be 1 character long" % fill)
+
+    output_rows = []
+    for row_stack in zip(*[_l.splitlines() for _l in rendered_layers]):
+
+        if len(set((len(_r) for _r in row_stack))) is not 1:
+            raise ValueError("Input layers have heterogeneous dimensions")
+
         o_row = []
-        for chars in zip(*row):
-            f = [_c for _c in chars if _c != ' ']
-            o_row.append(f[-1] if len(f) is not 0 else ' ')
-        output.append(''.join(o_row))
+        for pixel_stack in zip(*(r[::2] for r in row_stack)):
+            opaque_pixels = [_p for _p in pixel_stack if _p != ' ']
+            if len(opaque_pixels) is 0:
+                o_row.append(fill)
+            else:
+                o_row.append(opaque_pixels[-1])
+        output_rows.append(' '.join(o_row))
 
-    return os.linesep.join(output)
+    return os.linesep.join(output_rows) + os.linesep
 
 
-def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, value=DEFAULT_VALUE, all_touched=False,
-           x_min=None, x_max=None, y_min=None, y_max=None):
+def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, value=DEFAULT_VALUE, all_touched=False, bbox=None):
 
     """
     Convert GeoJSON features, geometries, or objects supporting `__geo_interface__`
@@ -242,13 +292,16 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, value=DEFAULT_VALUE, al
     fill = str(fill)
     value = str(value)
     if len(fill) is not 1:
-        raise ValueError("Fill value must be 1 character long, not %s: `%s'" % (len(fill), fill))
+        raise ValueError("Invalid fill value `%s' - must be 1 character long" % fill)
     if len(value) is not 1:
-        raise ValueError("Rasterize value must be 1 character long, not %s: `%s'" % (len(value), value))
+        raise ValueError("Invalid pixel value `%s' - must be 1 character long" % value)
     if width <= 0:
         raise ValueError("Invalid width `%s' - must be > 0" % width)
 
-    if x_min is y_min is x_max is y_max is None:
+    if bbox is not None:
+        x_min, y_min, x_max, y_max = bbox
+
+    else:
 
         # If the input is a generator and the min/max values were not supplied we have to compute them from the
         # features, but we need them again later and generators cannot be reset.  This potentially creates a large
@@ -293,7 +346,7 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, value=DEFAULT_VALUE, al
     with BytesIO() as _a_f:
         np.savetxt(_a_f, output_array, fmt='%s')
         _a_f.seek(0)
-        return _a_f.read().decode("utf-8").strip(os.linesep)
+        return _a_f.read().decode("utf-8").strip(os.linesep) + os.linesep
 
 
 def paginate(ftrz, properties=None, **kwargs):
@@ -329,5 +382,3 @@ def paginate(ftrz, properties=None, **kwargs):
         output.append(render(item, **kwargs))
 
         yield os.linesep.join(output) + os.linesep
-
-

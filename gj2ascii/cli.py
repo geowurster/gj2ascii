@@ -23,13 +23,10 @@ Commandline interface for gj2ascii
 """
 
 
-import itertools
 import os
-import sys
 
-from . import __version__
-from ._core import *
-from ._core import zip_longest
+import gj2ascii
+from gj2ascii._core import zip_longest
 
 import click
 import fiona as fio
@@ -54,26 +51,36 @@ def _callback_properties(ctx, param, value):
     Click callback to validate --parameters.
     """
 
-    output = []
-    for properties in value:
-        if properties in ('%all', None):
-            output.append(properties)
-        else:
-            output.append(properties.split(','))
+    if value in ('%all', None):
+        return value
+    else:
+        return value.split(',')
 
-    return output
+
+def _callback_multiple_default(ctx, param, value):
+
+    """
+    Options that can be specified multiple times are an empty tuple if they are
+    never specified.  This callback wraps the default value in a tuple if the
+    argument is not specified at all.
+    """
+
+    if len(value) is 0:
+        return param.default,
+    else:
+        return value
 
 
 @click.command()
-@click.version_option(version=__version__)
+@click.version_option(version=gj2ascii.__version__)
 @click.argument('infile')
 @click.argument('outfile', type=click.File(mode='w'), default='-')
 @click.option(
-    '-l', '--layer', 'layer_name', metavar='NAME', multiple=True,
+    '-l', '--layer', 'layer_name', metavar='NAME', multiple=True, callback=_callback_multiple_default,
     help="Specify input layer for multi-layer datasources."
 )
 @click.option(
-    '-w', '--width', type=click.INT, default=DEFAULT_WIDTH,
+    '-w', '--width', type=click.INT, default=gj2ascii.DEFAULT_WIDTH,
     help="Render geometry across N columns.  Note that a space is inserted "
          "between each column so the actual number of columns is `(width * 2) - 1`"
 )
@@ -82,7 +89,7 @@ def _callback_properties(ctx, param, value):
     help="Iterate over input features and display each individually."
 )
 @click.option(
-    '-f', '--fill', 'fill_char', default=' ', metavar='CHAR', multiple=True, callback=_callback_fill_and_value,
+    '-f', '--fill', 'fill_char', default=' ', metavar='CHAR',
     help="Single character for non-geometry pixels."
 )
 @click.option(
@@ -90,24 +97,34 @@ def _callback_properties(ctx, param, value):
     help="Single character for geometry pixels."
 )
 @click.option(
-    '-at', '--all-touched', is_flag=True,
+    '--all-touched / --no-all-touched', '-at / -nat', multiple=True, default=False, callback=_callback_multiple_default,
     help="Fill all pixels that intersect a geometry instead of those whose center "
          "intersects a geometry."
 )
 @click.option(
-    '--crs', 'crs_def', metavar='DEF', multiple=True,
-    help="Specify input CRS."
+    '--crs', 'crs_def', metavar='DEF', multiple=True, callback=_callback_multiple_default,
+    help="Specify input CRS.  No transformations are performed but this will "
+         "override the input CRS or assign a new one."
 )
 @click.option(
     '--no-prompt', is_flag=True,
     help="Print all geometries without pausing in between."
 )
 @click.option(
-    '-p', '--properties', metavar='NAME,NAME,...', multiple=True, callback=_callback_properties,
+    '-p', '--properties', metavar='NAME,NAME,...', callback=_callback_properties,
     help="When iterating over features display the specified properties above "
          "each geometry.  Use `%all` for all."
 )
-def main(infile, outfile, width, layer_name, iterate, fill_char, value_char, all_touched, crs_def, no_prompt, properties):
+@click.option(
+    '--bbox', nargs=4, metavar="X_MIN Y_MIN X_MAX Y_MAX", type=click.FLOAT,
+    help="Render data within bounding box.  If iterating through all features "
+         "only those intersecting the bbox will be rendered.  If processing a "
+         "single layer the default is to use the layer extent but if processing "
+         "multiple layers the minimum bounding box containing all layers is "
+         "computed."
+)
+def main(infile, outfile, width, layer_name, iterate, fill_char, value_char, all_touched, crs_def, no_prompt,
+         properties, bbox):
 
     """
     Render GeoJSON on the commandline as ASCII.
@@ -134,75 +151,75 @@ def main(infile, outfile, width, layer_name, iterate, fill_char, value_char, all
                 --iterate
     """
 
+    # Iterate over every feature in a single input layer
     if iterate:
 
-        # When processing multiple layers let the user specify a few flags like --crs and --properties
-        # once per --layer or only once to apply to all layers.  The user cannot do something like specify
-        # --crs twice but --layer four times.
-        # TODO: A click callback can replace this if it has access to all parsed values
-        if len(crs_def) is not 1 and len(layer_name) is not len(crs_def):
-            raise click.Abort("Specify CRS once to apply to all input layers or once per layer.")
-        if len(properties) is not 1 and len(properties) is not len(layer_name):
-            raise click.Abort("Specify properties once to apply to all input layers or once per layer.")
-        if len(value_char) is not 1 and len(value_char) is not len(layer_name):
-            raise click.Abort("Specify value once to apply to all input layers or once per layer.")
-        if len(fill_char) is not 1 and len(fill_char) is not len(fill_char):
-            raise click.Abort("Specify fill once to apply to all input layers or once per layer.")
+        if len(layer_name) > 1 or len(crs_def) > 1 or len(fill_char) > 1 or len(value_char) > 1 or len(all_touched) > 1:
+            raise click.ClickException(
+                "Can only iterate over 1 layer - all associated arguments can only be specified once")
 
-        if len(layer_name) is 0:
+        with fio.open(infile, layer=layer_name[-1], crs=crs_def[-1]) as src:
+            kwargs = {
+                'width': width,
+                'value': value_char,
+                'fill': fill_char,
+                'properties': properties,
+                'all_touched': all_touched,
+                'bbox': bbox
+            }
+            for feature in gj2ascii.paginate(src.filter(bbox=bbox), **kwargs):
+                outfile.write(feature)
+                if not no_prompt and click.prompt("Press enter for next feature or 'q + enter' to exit",
+                                                  default='', show_default=False) not in ('', os.linesep):
+                    raise click.Abort()
+
+    # Stack multiple layers and render as a single block
+    elif '%all' in layer_name or len(layer_name) > 1:
+        for arg in (crs_def, fill_char, value_char, all_touched):
+            if len(arg) not in (1, len(layer_name)):
+                raise click.ClickException("Stacking %s layers - all associated arguments can be specified "
+                                           "only once to apply to all layers or once per layer." % len(layer_name))
+
+        if '%all' in layer_name:
             layer_name = fio.listlayers(infile)
 
-        for layer, crs, props, fill, value in zip_longest(layer_name, crs_def, properties, fill_char, value_char):
+        # User didn't specify a bounding box.  Compute the minimum bbox for all layers.
+        if not bbox:
+            coords = []
+            for layer, crs in zip_longest(layer_name, crs_def):
+                with fio.open(infile, layer=layer, crs=crs) as src:
+                    coords += list(src.bounds)
+            bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
+
+        if len(value_char) is 1:
+            value_char = gj2ascii.DEFAULT_RAMP[:len(layer_name)]
+
+        rendered_layers = []
+        for layer, value, crs, at in zip_longest(layer_name, value_char, crs_def, all_touched):
             with fio.open(infile, layer=layer, crs=crs) as src:
-                kwargs = {
+                r_kwargs = {
                     'width': width,
                     'value': value,
-                    'fill': fill,
-                    'properties': src.schema['properties'] if props == '%all' else props,
-                    'all_touched': all_touched
+                    'fill': ' ',
+                    'all_touched': at,
+                    'bbox': bbox
                 }
-                for feature in paginate(src, **kwargs):
+                rendered_layers.append(gj2ascii.render(src, **r_kwargs))
+        outfile.write(gj2ascii.stack(rendered_layers, fill=fill_char))
 
-                    outfile.write(feature)
-
-                    if not no_prompt and click.prompt("Press enter for next feature or 'q + enter' to exit",
-                                                      default='', show_default=False) not in ('', os.linesep):
-                        raise click.Abort()
+    # Simplest case - only rendering a single layer
     else:
-        with fio.open(infile, layer=layer_name[0], crs=crs_def) as src:
-            kwargs = dict(zip(('x_min', 'y_min', 'x_max', 'y_max'), src.bounds))
-            outfile.write(render(src, **kwargs))
 
-    #
-    #     with fio.open(infile, layer=layer_name, crs=crs) as src:
-    #
-    #         if iterate:
-    #
-    #             if properties == '%all':
-    #                 properties = src.schema['properties'].keys()
-    #             elif properties is not None:
-    #                 for prop in properties:
-    #                     if prop not in src.schema['properties']:
-    #                         raise ValueError("Property '%s' not in source properties: `%s'"
-    #                                          % (prop, ', '.join(src.schema['properties'])))
-    #
-    #             for feature in paginate(
-    #                     src, width=width, fill=fill, value=value, properties=properties, all_touched=all_touched):
-    #
-    #                 outfile.write(feature)
-    #
-    #                 if not no_prompt and click.prompt(
-    #                         "Press enter for next feature or 'q + enter' to exit", default='', show_default=False) != '':
-    #
-    #                     raise click.Abort("User stopped feature iteration.")
-    #
-    #         else:
-    #             kwargs = dict(zip(('x_min', 'y_min', 'x_max', 'y_max'), src.bounds))
-    #             kwargs.update(all_touched=all_touched)
-    #             outfile.write(render(src, width=width, fill=fill, value=value, **kwargs))
-    #
-    #     sys.exit(0)
-    #
-    # except Exception as e:
-    #     click.echo("ERROR: Encountered an exception - %s" % repr(e), err=True)
-    #     sys.exit(1)
+        if len(layer_name) > 1 or len(crs_def) > 1 or len(fill_char) > 1 or len(value_char) > 1 or len(all_touched) > 1:
+            raise click.ClickException(
+                "Only rendering 1 layer - all associated arguments can only be specified once.")
+
+        with fio.open(infile, layer=layer_name[-1] if layer_name else None, crs=crs_def[-1] if crs_def else None) as src:
+            kwargs = {
+                'width': width,
+                'value': value_char[-1],
+                'fill': fill_char[-1],
+                'all_touched': all_touched[-1],
+                'bbox': src.bounds if not bbox else bbox
+            }
+            outfile.write(gj2ascii.render(src, **kwargs))
