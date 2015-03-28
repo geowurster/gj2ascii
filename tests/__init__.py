@@ -20,6 +20,7 @@ def compare_ascii(out1, out2):
 POLY_FILE = os.path.join('sample-data', 'polygons.geojson')
 LINE_FILE = os.path.join('sample-data', 'lines.geojson')
 SINGLE_FEATURE_WV_FILE = os.path.join('sample-data', 'single-feature-WV.geojson')
+MULTILAYER_FILE = os.path.join('sample-data', 'multilayer-polygon-line')
 
 
 EXPECTED_POLYGON_20_WIDE = """
@@ -179,24 +180,55 @@ EXPECTED_TWO_PROPERTIES_OUTPUT = """
 +-------+-----------+
 
 
-
-      + + +   + + +
-    + + + + + +
-+ + + + + +
-+ + + + +
-""".strip()
-
-
-EXPECTED_BAD_PROPERTIES_OUTPUT = """
-
-Couldn't generate attribute table - invalid properties: bad-name
-
-
-
       + + +   + + +
     + + + + + +
 + + + + + +
 + + + + +
 
 
+
 """.strip()
+
+
+EXPECTED_STACKED = """
+. + . . . . . . . . . . . + . . . . . .
+. + + + . . . . . . . . . . . . . . . .
+. . 8 8 8 8 8 8 8 . . . . 8 . . . . . .
+. . . 8 . . . . . . . . . 8 . . . . . .
+. . . . 8 . . . . + . . . . 8 . . . . .
+. . . . . 8 . . . + + . . . 8 . . . . .
+. . . . . . 8 . . + + + + . 8 . . . . .
+. . . . . 8 . . . . + + + + . 8 . . . .
+. . . . 8 . . . . . . 8 8 8 . 8 . . + .
++ + + . 8 . . . 8 8 8 . + + . . 8 + + +
++ + + 8 . . . . . . . . . . . . 8 + + +
+. . 8 . . . 8 . . + . . . . . . 8 + + .
+. . . 8 . . 8 8 + + . . . . . . . 8 + .
+. . . . 8 . 8 + 8 + . . . . . . . 8 + .
+. . . . 8 8 + + 8 + . . . . . . . . . .
+. . . . . 8 + + + 8 . . . . . . . . . .
+. . . . . . . . + + . . . . . . . . . .
+
+"""
+
+
+EXPECTED_STACK_PERCENT_ALL = """
+  1                       1
+  1 1 1
+    0 1 0 0 0 0 0         0
+      0                   1
+        0         1         0
+          0       1 1       0
+            0     1 1 1 1   0
+          0         1 1 1 1   0
+        0             1 1 1   0     1
+1 1 1   0       0 0 0   1 1     0 1 1 1
+1 1 1 1                         1 1 1 1
+    1       0     1             0 1 1
+      0     0 0 1 1               0 1
+        0   0 1 1 1               0 1
+        0 0 1 1 1 1
+          0 1 1 1 1
+                1 1
+
+"""

@@ -79,7 +79,10 @@ def _callback_multiple_default(ctx, param, value):
 @click.command()
 @click.version_option(version=gj2ascii.__version__)
 @click.argument('infile')
-@click.argument('outfile', type=click.File(mode='w'), default='-')
+@click.option(
+    '-o', '--outfile', type=click.File(mode='w'), default='-',
+    help="Write to an output file instead of stdout."
+)
 @click.option(
     '-l', '--layer', 'layer_name', metavar='NAME', multiple=True, callback=_callback_multiple_default,
     help="Specify input layer for multi-layer datasources."
@@ -181,10 +184,10 @@ def main(infile, outfile, width, layer_name, iterate, fill_char, value_char, all
                 for feature in gj2ascii.paginate(src.filter(bbox=bbox), **kwargs):
                     click.echo(feature, file=outfile)
                     if not no_prompt and click.prompt("Press enter for next feature or 'q + enter' to exit",
-                                                      default='', show_default=False) not in ('', os.linesep):
+                                                      default='', show_default=False) not in ('', os.linesep):  # pragma no cover
                         raise click.Abort()
             except Exception as e:
-                if isinstance(e, click.Abort):
+                if isinstance(e, click.Abort):  # pragma no cover
                     raise e
                 else:
                     raise click.ClickException(repr(e))

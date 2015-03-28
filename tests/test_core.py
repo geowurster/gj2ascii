@@ -4,7 +4,9 @@ Unittests for gj2ascii._core
 
 
 from collections import OrderedDict
+import os
 import unittest
+import warnings
 
 import fiona
 
@@ -28,6 +30,16 @@ def test_compare_ascii():
 
 
 class TestDictTable(unittest.TestCase):
+
+    def test_deprecated_dict_table(self):
+        with warnings.catch_warnings():
+            test_dict = OrderedDict((
+                ('Field1', None),
+                ('__something', 'a string'),
+                ('more', 12345),
+                ('other', 1.2344566)
+            ))
+            self.assertEqual(gj2ascii.dict_table(test_dict), gj2ascii.dict2table(test_dict))
 
     def test_empty_dict(self):
         with self.assertRaises(ValueError):
@@ -141,3 +153,32 @@ class TestGeometryExtractor(unittest.TestCase):
                     self.gi_geometry.__geo_interface__)
         for expected, actual in zip(expected, gj2ascii._core._geometry_extractor(input_objects)):
             self.assertDictEqual(expected, actual)
+
+
+class TestStack(unittest.TestCase):
+
+    def test_standard(self):
+        form = lambda x: os.linesep.join([' '.join(line) for line in x])
+
+        l1 = form([['*', '*', '*', '*', '*'],
+                   [' ', ' ', '*', ' ', ' '],
+                   ['*', '*', ' ', ' ', ' ']]).strip(os.linesep)
+
+        l2 = form([[' ', ' ', ' ', '+', '+'],
+                   [' ', '+', ' ', ' ', ' '],
+                   [' ', ' ', '+', '+', '+']]).strip(os.linesep)
+
+        eo = form([['*', '*', '*', '+', '+'],
+                   ['.', '+', '*', '.', '.'],
+                   ['*', '*', '+', '+', '+']]).strip(os.linesep)
+
+        self.assertEqual(gj2ascii.stack([l1, l2], fill='.').strip(os.linesep), eo.strip(os.linesep))
+
+    def test_exceptions(self):
+        # Bad fill value
+        with self.assertRaises(ValueError):
+            gj2ascii.stack([], fill='too-long')
+
+        # Input layers have different dimensions
+        with self.assertRaises(ValueError):
+            gj2ascii.stack(['1', '1234'])

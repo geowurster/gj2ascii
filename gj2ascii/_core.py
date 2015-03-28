@@ -102,7 +102,7 @@ def dict2table(dictionary):
     return os.linesep.join(output)
 
 
-def dict_table(*args):
+def dict_table(*args, **kwargs):  # pragma no cover
 
     """
     Deprecated alias for `dict2table()`.  Will be removed before 1.0.
@@ -111,7 +111,7 @@ def dict_table(*args):
     warnings.warn("Function `dict_table()` is deprecated and will be removed "
                   "before 1.0 - use `dict2table()` instead.")
 
-    return dict2table(*args)
+    return dict2table(*args, **kwargs)
 
 
 def _geometry_extractor(ftrz):
