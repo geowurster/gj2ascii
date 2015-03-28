@@ -27,6 +27,7 @@ import os
 
 import gj2ascii
 from gj2ascii._core import zip_longest
+from gj2ascii._core import string_types
 
 import click
 import fiona as fio
@@ -38,9 +39,13 @@ def _callback_fill_and_value(ctx, param, value):
     Click callback to validate --fill and --value.
     """
 
-    for v in value:
+    if isinstance(value, string_types):
+        _value = value,
+    else:
+        _value = value
+    for v in _value:
         if v is not None and len(v) is not 1:
-            raise click.BadParameter('must be a single character')
+            raise click.BadParameter("`%s' is invalid - must be a single character" % v)
 
     return value
 
@@ -89,7 +94,7 @@ def _callback_multiple_default(ctx, param, value):
     help="Iterate over input features and display each individually."
 )
 @click.option(
-    '-f', '--fill', 'fill_char', default=' ', metavar='CHAR',
+    '-f', '--fill', 'fill_char', default=' ', metavar='CHAR', callback=_callback_fill_and_value,
     help="Single character for non-geometry pixels."
 )
 @click.option(
@@ -151,7 +156,7 @@ def main(infile, outfile, width, layer_name, iterate, fill_char, value_char, all
                 --iterate
     """
 
-    # Iterate over every feature in a single input layer
+    # ===== Iterate over every feature in a single input layer
     if iterate:
 
         if len(layer_name) > 1 or len(crs_def) > 1 or len(fill_char) > 1 or len(value_char) > 1 or len(all_touched) > 1:
@@ -159,21 +164,32 @@ def main(infile, outfile, width, layer_name, iterate, fill_char, value_char, all
                 "Can only iterate over 1 layer - all associated arguments can only be specified once")
 
         with fio.open(infile, layer=layer_name[-1], crs=crs_def[-1]) as src:
+
+            if properties == '%all':
+                properties = src.schema['properties'].keys()
+
             kwargs = {
                 'width': width,
-                'value': value_char,
-                'fill': fill_char,
+                'value': value_char[-1],
+                'fill': fill_char[-1],
                 'properties': properties,
-                'all_touched': all_touched,
+                'all_touched': all_touched[-1],
                 'bbox': bbox
             }
-            for feature in gj2ascii.paginate(src.filter(bbox=bbox), **kwargs):
-                outfile.write(feature)
-                if not no_prompt and click.prompt("Press enter for next feature or 'q + enter' to exit",
-                                                  default='', show_default=False) not in ('', os.linesep):
-                    raise click.Abort()
 
-    # Stack multiple layers and render as a single block
+            try:
+                for feature in gj2ascii.paginate(src.filter(bbox=bbox), **kwargs):
+                    click.echo(feature, file=outfile)
+                    if not no_prompt and click.prompt("Press enter for next feature or 'q + enter' to exit",
+                                                      default='', show_default=False) not in ('', os.linesep):
+                        raise click.Abort()
+            except Exception as e:
+                if isinstance(e, click.Abort):
+                    raise e
+                else:
+                    raise click.ClickException(repr(e))
+
+    # ===== Stack multiple layers and render as a single block
     elif '%all' in layer_name or len(layer_name) > 1:
         for arg in (crs_def, fill_char, value_char, all_touched):
             if len(arg) not in (1, len(layer_name)):
@@ -205,12 +221,12 @@ def main(infile, outfile, width, layer_name, iterate, fill_char, value_char, all
                     'bbox': bbox
                 }
                 rendered_layers.append(gj2ascii.render(src, **r_kwargs))
-        outfile.write(gj2ascii.stack(rendered_layers, fill=fill_char))
+        click.echo(gj2ascii.stack(rendered_layers, fill=fill_char), file=outfile)
 
-    # Simplest case - only rendering a single layer
+    # ===== Simplest case - only rendering a single layer
     else:
 
-        if len(layer_name) > 1 or len(crs_def) > 1 or len(fill_char) > 1 or len(value_char) > 1 or len(all_touched) > 1:
+        if len(layer_name) > 1 or len(crs_def) > 1 or len(value_char) > 1 or len(all_touched) > 1:
             raise click.ClickException(
                 "Only rendering 1 layer - all associated arguments can only be specified once.")
 
@@ -218,8 +234,8 @@ def main(infile, outfile, width, layer_name, iterate, fill_char, value_char, all
             kwargs = {
                 'width': width,
                 'value': value_char[-1],
-                'fill': fill_char[-1],
+                'fill': fill_char,
                 'all_touched': all_touched[-1],
                 'bbox': src.bounds if not bbox else bbox
             }
-            outfile.write(gj2ascii.render(src, **kwargs))
+            click.echo(gj2ascii.render(src, **kwargs), file=outfile)

@@ -298,7 +298,7 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, value=DEFAULT_VALUE, al
     if width <= 0:
         raise ValueError("Invalid width `%s' - must be > 0" % width)
 
-    if bbox is not None:
+    if bbox:
         x_min, y_min, x_max, y_max = bbox
 
     else:

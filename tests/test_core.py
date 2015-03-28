@@ -31,7 +31,7 @@ class TestDictTable(unittest.TestCase):
 
     def test_empty_dict(self):
         with self.assertRaises(ValueError):
-            gj2ascii.dict_table({})
+            gj2ascii.dict2table({})
 
     def test_with_values(self):
         test_dict = OrderedDict((
@@ -48,7 +48,7 @@ class TestDictTable(unittest.TestCase):
 | other       | 1.2344566 |
 +-------------+-----------+
 """.strip()
-        self.assertEqual(gj2ascii.dict_table(test_dict), expected)
+        self.assertEqual(gj2ascii.dict2table(test_dict), expected)
 
 
 class TestRender(unittest.TestCase):
@@ -64,8 +64,7 @@ class TestRender(unittest.TestCase):
     def test_compare_min_max_given_vs_compute_and_as_generator(self):
         # Easiest to compare these 3 things together since they are related
         with fiona.open(POLY_FILE) as src:
-            min_max = dict(zip(('x_min', 'y_min', 'x_max', 'y_max'), src.bounds))
-            given = gj2ascii.render(src, 15, **min_max)
+            given = gj2ascii.render(src, 15, bbox=src.bounds)
             computed = gj2ascii.render(src, 15)
             # Passing in a generator and not specifying x/y min/max requires the features to be iterated over twice
             # which is a problem because generators cannot be reset.  A backup of the generator should be created
@@ -75,8 +74,7 @@ class TestRender(unittest.TestCase):
 
     def test_with_fiona(self):
         with fiona.open(POLY_FILE) as src:
-            kwargs = dict(zip(('x_min', 'y_min', 'x_max', 'y_max'), src.bounds))
-            r = gj2ascii.render(src, width=20, fill='.', value='+', **kwargs)
+            r = gj2ascii.render(src, width=20, fill='.', value='+', bbox=src.bounds)
             self.assertEqual(EXPECTED_POLYGON_20_WIDE.strip(), r.strip())
 
 
