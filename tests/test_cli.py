@@ -176,7 +176,7 @@ class TestCli(unittest.TestCase):
         # Different versions of python generate a list of layers for %all in a different order, so the test
         # has to normalize this difference and modify the command output.
         output = result.output
-        if output.strip[0] != '1':
+        if output.strip()[0] != '1':
             output.replace('0', 'z')
             output.replace('z', '1')
             output.replace('1', 'o')
