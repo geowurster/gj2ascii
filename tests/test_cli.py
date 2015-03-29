@@ -170,6 +170,12 @@ class TestCli(unittest.TestCase):
             '--layer', '%all',
             '--width', '20'
         ])
+        print("-=-=-=-=-=-=-=-")
+        print(repr(result.output))
+        print("-=-=-=-=-=-=-=-")
+        print(repr(EXPECTED_STACK_PERCENT_ALL.strip())
+        print("-=-=-=-=-=-=-=-")
+
         self.assertEqual(result.exit_code, 0)
         self.assertTrue(compare_ascii(result.output.strip(), EXPECTED_STACK_PERCENT_ALL.strip()))
 
