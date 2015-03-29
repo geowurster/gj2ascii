@@ -26,8 +26,8 @@ Commandline interface for gj2ascii
 import os
 
 import gj2ascii
-from gj2ascii._core import zip_longest
-from gj2ascii._core import string_types
+from ._23 import zip_longest
+from ._23 import string_types
 
 import click
 import fiona as fio

@@ -8,9 +8,10 @@ from __future__ import division
 from collections import OrderedDict
 import itertools
 import os
-import sys
 from types import GeneratorType
 import warnings
+
+from ._23 import text_type
 
 import affine
 import numpy as np
@@ -41,16 +42,16 @@ COLOR_MAP = {
     'cyan': '\x1b[36m\x1b[46m',
     'white': '\x1b[37m\x1b[47m'
 }
-
-
-if sys.version_info[0] >= 3:  # pragma no cover
-    string_types = str,
-    text_type = str
-    zip_longest = itertools.zip_longest
-else:  # pragma no cover
-    string_types = basestring,
-    text_type = unicode
-    zip_longest = itertools.izip_longest
+DEFAULT_COLOR_RAMP = {
+    ' ': 'black',
+    '0': 'magenta',
+    '1': 'blue',
+    '2': 'green',
+    '3': 'yellow',
+    '4': 'cyan',
+    '5': 'white',
+    '6': 'red'
+}
 
 
 def dict2table(dictionary):
@@ -223,7 +224,7 @@ def array2ascii(arr):
         A list where each element is a list containing one value per pixel.
     """
 
-    return os.linesep.join([' '.join(row) for row in arr]) + os.linesep
+    return os.linesep.join([' '.join(row) for row in arr])
 
 
 def stack(rendered_layers, fill=DEFAULT_FILL):
@@ -482,6 +483,6 @@ def style(rendered_ascii, colormap):
         o_row = []
         for char in row:
             color = COLOR_MAP[colormap[char]]
-            o_row.append((color + char + _ANSI_RESET) * 2)
+            o_row.append(color + (char * 2) + _ANSI_RESET)
         output.append(''.join(o_row))
     return os.linesep.join(output)

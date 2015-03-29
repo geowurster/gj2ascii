@@ -32,38 +32,29 @@ class TestCli(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()
 
-    def test_expected(self):
+    def test_simple(self):
+        result = self.runner.invoke(cli.main, [
+            POLY_FILE,
+            '--width', '20',
+            '--value', '+',
+            '--fill', '.',
+        ])
+        self.assertEqual(result.exit_code, 0)
+        self.assertTrue(compare_ascii(result.output, EXPECTED_POLYGON_20_WIDE))
 
-        fill = '.'
-        value = '+'
-        expected_args = {
-            EXPECTED_POLYGON_20_WIDE: [
-                POLY_FILE,
-                '--width', '20',
-                '--value', value,
-                '--fill', fill,
-            ],
-            EXPECTED_LINE_20_WIDE: [
-                '--width', '20',
-                '--value', value,
-                '--fill', fill,
-                '--no-prompt',
-                '--all-touched',
-                '--iterate',
-                LINE_FILE
-            ]
-        }
-        for EXPECTED, args in expected_args.items():
-            for crs in (None, 'EPSG:4326'):
-                if crs is not None:
-                    args += ['--crs', crs]
-                result = self.runner.invoke(cli.main, args)
-                self.assertEqual(result.exit_code, 0)
-                expected_lines = EXPECTED.rstrip(os.linesep).splitlines()
-                actual_lines = result.output.rstrip(os.linesep).splitlines()
-                for e_line, a_line in zip(expected_lines, actual_lines):
-                    if e_line.startswith((fill, value)) and a_line.startswith((fill, value)):
-                        self.assertEqual(e_line.rstrip(os.linesep).lower(), a_line.rstrip(os.linesep).lower())
+    def test_complex(self):
+        result = self.runner.invoke(cli.main, [
+            LINE_FILE,
+            '--width', '20',
+            '--value', '+',
+            '--fill', '.',
+            '--no-prompt',
+            '--all-touched',
+            '--iterate',
+            '--crs', 'EPSG:26918'
+        ])
+        self.assertEqual(result.exit_code, 0)
+        self.assertTrue(compare_ascii(result.output, EXPECTED_LINE_20_WIDE))
 
     def test_bad_fill_value(self):
         result = self.runner.invoke(cli.main, ['-v toolong', POLY_FILE])

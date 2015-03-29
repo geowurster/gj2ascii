@@ -191,7 +191,7 @@ class TestStack(unittest.TestCase):
 class TestArray2Ascii2Array(unittest.TestCase):
 
     def setUp(self):
-        self.ascii = '* * * * *' + os.linesep + '  *   *  ' + os.linesep + '* * * * *' + os.linesep
+        self.ascii = '* * * * *' + os.linesep + '  *   *  ' + os.linesep + '* * * * *'
         self.array = [['*', '*', '*', '*', '*'], [' ', '*', ' ', '*', ' '], ['*', '*', '*', '*', '*']]
         self.np_array = np.array(self.array)
 
@@ -206,3 +206,27 @@ class TestArray2Ascii2Array(unittest.TestCase):
     def test_roundhouse(self):
         self.assertEqual(self.ascii, gj2ascii.array2ascii(gj2ascii.ascii2array(self.ascii)))
         self.assertEqual(self.array, gj2ascii.ascii2array(gj2ascii.array2ascii(self.array)))
+
+
+class TestStyle(unittest.TestCase):
+
+    def test_style(self):
+
+        array = [['0', '0', '0', '1', '0'],
+                 [' ', ' ', '2', '0', '1'],
+                 ['1', '1', '2', '1', '3']]
+        colormap = {
+            ' ': 'black',
+            '0': 'blue',
+            '1': 'yellow',
+            '2': 'white',
+            '3': 'red'
+        }
+        expected = []
+        for row in array:
+            o_row = []
+            for char in row:
+                o_row.append(gj2ascii.COLOR_MAP[colormap[char]] + (char * 2) + gj2ascii._core._ANSI_RESET)
+            expected.append(''.join(o_row))
+        expected = os.linesep.join(expected)
+        self.assertEqual(expected, gj2ascii.style(gj2ascii.array2ascii(array), colormap=colormap))

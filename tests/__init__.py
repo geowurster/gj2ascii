@@ -10,7 +10,7 @@ import os
 
 
 def compare_ascii(out1, out2):
-    # Zip over two blocks of text and compare each pari of lines
+    # Zip over two blocks of text and compare each pair of lines
     for o1_line, o2_line in zip(out1.strip().splitlines(), out2.strip().splitlines()):
         if o1_line.strip() != o2_line.strip():
             return False
@@ -80,7 +80,6 @@ EXPECTED_LINE_20_WIDE = """
 . . . . . . + + . . + . . . . . + + . .
 . . . . . . . + + . + . . . . . . + + .
 . . . . . . . . + + + . . . . . . . + +
-
 + . . . . . . . . . . . . . . . . . . .
 + . . . . . . . . . . . . . . . . . . .
 + + . . . . . . . . . . . . . . . . . .
@@ -136,7 +135,6 @@ EXPECTED_LINE_20_WIDE = """
 . . . . . . . . . . . . . . . . . . + +
 . . . . . . . . . . . . . . . . . . . +
 . . . . . . . . . . . . . . . . . . . +
-
 + + + + + + + + + + + + + + + + + + + +
 """.strip()
 
