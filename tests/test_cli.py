@@ -176,21 +176,23 @@ class TestCli(unittest.TestCase):
         # Different versions of python generate a list of layers for %all in a different order, so the test
         # has to normalize this difference and modify the command output.
         output = result.output
-        if str(output.strip()[0]) != str('1'):
+        if output.strip()[0] != '1':
             output.replace('0', 'z')
             output.replace('z', '1')
             output.replace('1', 'o')
             output.replace('o', '0')
-        print("")
-        print("-=-=-=-=-=-=-=-=-")
-        print(repr(output.strip()))
-        print("-=-=-=-=-=-=-=-=-")
-        print(repr(EXPECTED_STACK_PERCENT_ALL.strip()))
-        print("-=-=-=-=-=-=-=-=-")
-        print(output.strip())
-        print("-=-=-=-=-=-=-=-=-")
-        print(EXPECTED_STACK_PERCENT_ALL.strip())
-        print("-=-=-=-=-=-=-=-=-")
+        import fiona as fio
+        print(fio.listlayers(MULTILAYER_FILE))
+        # print("")
+        # print("-=-=-=-=-=-=-=-=-")
+        # print(repr(output.strip()))
+        # print("-=-=-=-=-=-=-=-=-")
+        # print(repr(EXPECTED_STACK_PERCENT_ALL.strip()))
+        # print("-=-=-=-=-=-=-=-=-")
+        # print(output.strip())
+        # print("-=-=-=-=-=-=-=-=-")
+        # print(EXPECTED_STACK_PERCENT_ALL.strip())
+        # print("-=-=-=-=-=-=-=-=-")
         self.assertTrue(compare_ascii(output.strip(), EXPECTED_STACK_PERCENT_ALL.strip()))
 
     def test_render_one_layer_too_many_args(self):
