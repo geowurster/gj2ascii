@@ -135,7 +135,8 @@ class TestGeometryExtractor(unittest.TestCase):
         self.assertDictEqual(self.feature['geometry'], next(gj2ascii._core._geometry_extractor(self.feature)))
         self.assertDictEqual(
             self.gi_feature.__geo_interface__['geometry'], next(gj2ascii._core._geometry_extractor(self.gi_feature)))
-        self.assertDictEqual(self.gi_geometry.__geo_interface__, next(gj2ascii._core._geometry_extractor(self.gi_geometry)))
+        self.assertDictEqual(
+            self.gi_geometry.__geo_interface__, next(gj2ascii._core._geometry_extractor(self.gi_geometry)))
 
     def test_multiple_homogeneous(self):
         for item in gj2ascii._core._geometry_extractor((self.geometry, self.geometry, self.geometry)):
@@ -158,7 +159,9 @@ class TestGeometryExtractor(unittest.TestCase):
 class TestStack(unittest.TestCase):
 
     def test_standard(self):
-        form = lambda x: os.linesep.join([' '.join(line) for line in x])
+
+        def form(x):
+            return os.linesep.join([' '.join(line) for line in x])
 
         l1 = form([['*', '*', '*', '*', '*'],
                    [' ', ' ', '*', ' ', ' '],

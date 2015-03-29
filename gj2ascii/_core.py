@@ -22,7 +22,7 @@ from shapely.geometry import mapping
 
 
 __all__ = [
-    'render', 'stack', 'dict2table', 'dict_table', 'paginate',
+    'render', 'stack', 'dict2table', 'dict_table', 'paginate',  # 'style',
     'DEFAULT_WIDTH', 'DEFAULT_FILL', 'DEFAULT_VALUE', 'DEFAULT_RAMP'
 ]
 
@@ -31,6 +31,17 @@ DEFAULT_FILL = ' '
 DEFAULT_VALUE = '+'
 DEFAULT_WIDTH = 40
 DEFAULT_RAMP = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '#', '@', '0', '=', '-', '%', '$']
+_ANSI_RESET = '\033[0m'
+COLOR_MAP = {
+    'black': '\x1b[30m\x1b[40m',
+    'red': '\x1b[31m\x1b[41m',
+    'green': '\x1b[32m\x1b[42m',
+    'yellow': '\x1b[33m\x1b[43m',
+    'blue': '\x1b[34m\x1b[44m',
+    'magenta': '\x1b[35m\x1b[45m',
+    'cyan': '\x1b[36m\x1b[46m',
+    'white': '\x1b[37m\x1b[47m'
+}
 
 
 if sys.version_info[0] >= 3:  # pragma no cover
@@ -381,4 +392,20 @@ def paginate(ftrz, properties=None, **kwargs):
 
         output.append(render(item, **kwargs))
 
-        yield os.linesep.join(output) + os.linesep
+        yield os.linesep.join(output)
+
+
+# def style(rendered_ascii, colormap=None):
+#
+#     """
+#     """
+#
+#     output = []
+#     for row in rendered_ascii.splitlines():
+#         chars = row[::2]
+#         o_row = []
+#         for c in chars:
+#             color = COLOR_MAP[colormap[c]]
+#             o_row.append((color + c + _ANSI_RESET) * 2)
+#         output.append(''.join(o_row))
+#     return os.linesep.join(output)

@@ -19,9 +19,12 @@ from . import EXPECTED_LINE_20_WIDE
 from . import MULTILAYER_FILE
 from . import EXPECTED_STACKED
 from . import EXPECTED_STACK_PERCENT_ALL
+from . import SMALL_AOI_POLY_LINE_FILE
+from . import EXPECTED_BBOX_POLY
 
 import click
 from click.testing import CliRunner
+import fiona as fio
 
 
 class TestCli(unittest.TestCase):
@@ -56,11 +59,11 @@ class TestCli(unittest.TestCase):
                     args += ['--crs', crs]
                 result = self.runner.invoke(cli.main, args)
                 self.assertEqual(result.exit_code, 0)
-                expected_lines = EXPECTED.strip().splitlines()
-                actual_lines = result.output.strip().splitlines()
+                expected_lines = EXPECTED.rstrip(os.linesep).splitlines()
+                actual_lines = result.output.rstrip(os.linesep).splitlines()
                 for e_line, a_line in zip(expected_lines, actual_lines):
                     if e_line.startswith((fill, value)) and a_line.startswith((fill, value)):
-                        self.assertEqual(e_line.strip().lower(), a_line.strip().lower())
+                        self.assertEqual(e_line.rstrip(os.linesep).lower(), a_line.rstrip(os.linesep).lower())
 
     def test_bad_fill_value(self):
         result = self.runner.invoke(cli.main, ['-v toolong', POLY_FILE])
@@ -81,9 +84,9 @@ class TestCli(unittest.TestCase):
         result = self.runner.invoke(cli.main,
                                     ['--width', width, POLY_FILE, '--fill', fill, '--value', value, '--no-prompt'])
         self.assertEqual(result.exit_code, 0)
-        for line in result.output.strip().splitlines():
+        for line in result.output.rstrip(os.linesep).splitlines():
             if line.startswith((fill, value)):
-                self.assertEqual(len(line.strip().split()), width)
+                self.assertEqual(len(line.rstrip(os.linesep).split()), width)
 
     def test_paginate_with_all_properties(self):
         result = self.runner.invoke(cli.main, [
@@ -122,7 +125,7 @@ class TestCli(unittest.TestCase):
             '--properties', 'bad-prop'
         ])
         self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.strip(), "Error: KeyError('bad-prop',)")
+        self.assertTrue(result.output.rstrip(os.linesep), "Error: KeyError('bad-prop',)")
 
     def test_write_to_file(self):
         with tempfile.NamedTemporaryFile('r+') as f:
@@ -149,7 +152,7 @@ class TestCli(unittest.TestCase):
             '--width', '20'
         ])
         self.assertEqual(result.exit_code, 0)
-        self.assertTrue(compare_ascii(result.output.strip(), EXPECTED_STACKED.strip()))
+        self.assertTrue(compare_ascii(result.output.rstrip(os.linesep), EXPECTED_STACKED.rstrip(os.linesep)))
 
     def test_stack_too_many_args(self):
         result = self.runner.invoke(cli.main, [
@@ -177,7 +180,10 @@ class TestCli(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertTrue('0' in result.output)
         self.assertTrue('1' in result.output)
-        self.assertEqual(len(result.output.strip().splitlines()), len(EXPECTED_STACK_PERCENT_ALL.strip().splitlines()))
+        self.assertEqual(
+            len(result.output.replace(os.linesep, '').replace(' ', '')),
+            len(EXPECTED_STACK_PERCENT_ALL.replace(os.linesep, '').replace(' ', ''))
+        )
 
     # def test_stack_percent_all_layers(self):
     #     result = self.runner.invoke(cli.main, [
@@ -189,19 +195,19 @@ class TestCli(unittest.TestCase):
     #
     #     # fio.listlayers() does not produce a list with the same order every time on every platform so some
     #     # adjustments have to be made
-    #     # if output.strip()[0] == '1':
+    #     # if output.rstrip(os.linesep)[0] == '1':
     #     #     output.replace('0', 'z')
     #     #     output.replace('z', '1')
     #     #     output.replace('1', 'o')
     #     #     output.replace('o', '0')
-    #     # self.assertTrue(compare_ascii(output.strip(), EXPECTED_STACK_PERCENT_ALL.strip()))
+    #     # self.assertTrue(compare_ascii(output.rstrip(os.linesep), EXPECTED_STACK_PERCENT_ALL.rstrip(os.linesep)))
     #     output = result.output
     #     output.replace('0', 'x')
     #     output.replace('1', 'x')
     #     EO = EXPECTED_STACK_PERCENT_ALL
     #     EO.replace('0', 'x')
     #     EO.replace('1', 'x')
-    #     self.assertTrue(compare_ascii(output.strip(), EO.strip()))
+    #     self.assertTrue(compare_ascii(output.rstrip(os.linesep), EO.rstrip(os.linesep)))
     #     self.assertTrue('0' in result.output)
     #     self.assertTrue('1' in result.output)
 
@@ -213,6 +219,28 @@ class TestCli(unittest.TestCase):
         ])
         self.assertNotEqual(result.exit_code, 0)
         self.assertTrue(result.output.startswith('Error:') and 'specified once' in result.output)
+
+    def test_bbox(self):
+        result_with_file = self.runner.invoke(cli.main, [
+            POLY_FILE,
+            '--width', '20',
+            '--bbox', SMALL_AOI_POLY_LINE_FILE,
+            '--value', '+'
+        ])
+        with fio.open(SMALL_AOI_POLY_LINE_FILE) as src:
+            result_with_bbox = self.runner.invoke(cli.main, [
+                POLY_FILE,
+                '--width', '20',
+                '--bbox', ' '.join([str(i) for i in src.bounds]),
+                '--value', '+'
+            ])
+        self.assertEqual(result_with_file.exit_code, 0)
+        self.assertEqual(result_with_bbox.exit_code, 0)
+        self.assertTrue(compare_ascii(
+            result_with_file.output.rstrip(os.linesep), EXPECTED_BBOX_POLY.rstrip(os.linesep)))
+        self.assertTrue(compare_ascii(
+            result_with_bbox.output.rstrip(os.linesep), EXPECTED_BBOX_POLY.rstrip(os.linesep)))
+        self.assertEqual(result_with_bbox.output, result_with_file.output)
 
 
 class TestCallbacks(unittest.TestCase):
@@ -242,3 +270,16 @@ class TestCallbacks(unittest.TestCase):
         self.assertEqual(values, cli._callback_multiple_default(None, None, values))
         values = '1'
         self.assertEqual((values), cli._callback_fill_and_value(None, None, values))
+
+    def test_callback_bbox(self):
+
+        bbox_file = 'sample-data/polygons.geojson'
+
+        with fio.open(bbox_file) as src:
+            str_bounds = ' '.join([str(i) for i in src.bounds])
+            self.assertEqual(None, cli._callback_bbox(None, None, None))
+            self.assertEqual(src.bounds, cli._callback_bbox(None, None, bbox_file))
+            self.assertEqual(
+                [round(i, 5) for i in src.bounds], [round(i, 5) for i in cli._callback_bbox(None, None, str_bounds)])
+            with self.assertRaises(click.BadParameter):
+                cli._callback_bbox(None, None, 1.23)

@@ -21,6 +21,7 @@ POLY_FILE = os.path.join('sample-data', 'polygons.geojson')
 LINE_FILE = os.path.join('sample-data', 'lines.geojson')
 SINGLE_FEATURE_WV_FILE = os.path.join('sample-data', 'single-feature-WV.geojson')
 MULTILAYER_FILE = os.path.join('sample-data', 'multilayer-polygon-line')
+SMALL_AOI_POLY_LINE_FILE = os.path.join('sample-data', 'small-aoi-polygon-line.geojson')
 
 
 EXPECTED_POLYGON_20_WIDE = """
@@ -41,7 +42,6 @@ EXPECTED_POLYGON_20_WIDE = """
 . . . . . . + + + + . . . . . . . . . .
 . . . . . . + + + + . . . . . . . . . .
 . . . . . . . . + + . . . . . . . . . .
-
 """.strip()
 
 
@@ -80,7 +80,6 @@ EXPECTED_LINE_20_WIDE = """
 . . . . . . + + . . + . . . . . + + . .
 . . . . . . . + + . + . . . . . . + + .
 . . . . . . . . + + + . . . . . . . + +
-
 
 + . . . . . . . . . . . . . . . . . . .
 + . . . . . . . . . . . . . . . . . . .
@@ -138,9 +137,7 @@ EXPECTED_LINE_20_WIDE = """
 . . . . . . . . . . . . . . . . . . . +
 . . . . . . . . . . . . . . . . . . . +
 
-
 + + + + + + + + + + + + + + + + + + + +
-
 """.strip()
 
 
@@ -230,5 +227,25 @@ EXPECTED_STACK_PERCENT_ALL = """
         0 0 1 1 1 1
           0 1 1 1 1
                 1 1
+
+"""
+
+
+EXPECTED_BBOX_POLY = """
+                                + + + +
+                                  + + +
+                                    + +
+                                      +
++ +
++ + +
++ + +
++ +
++ +                         +
+                          + +
+                        + + +
+                      + + + +
+                    + + + + +
+                  + + + + + +
+                + + + + + + +
 
 """

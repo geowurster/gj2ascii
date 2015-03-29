@@ -76,6 +76,24 @@ def _callback_multiple_default(ctx, param, value):
         return value
 
 
+def _callback_bbox(ctx, param, value):
+
+    """
+    Let the user specify a file for the bbox or a string with coordinates.
+    """
+
+    if value is None:
+        return value
+    else:
+        try:
+            with fio.open(value) as src:
+                return src.bounds
+        except (OSError, IOError):
+            return [float(i) for i in value.split()]
+        except Exception:
+            raise click.BadParameter('must be a file or "x_min y_min x_max y_max"')
+
+
 @click.command()
 @click.version_option(version=gj2ascii.__version__)
 @click.argument('infile')
@@ -124,7 +142,7 @@ def _callback_multiple_default(ctx, param, value):
          "each geometry.  Use `%all` for all."
 )
 @click.option(
-    '--bbox', nargs=4, metavar="X_MIN Y_MIN X_MAX Y_MAX", type=click.FLOAT,
+    '--bbox', metavar="FILE or COORDS", callback=_callback_bbox,
     help="Render data within bounding box.  If iterating through all features "
          "only those intersecting the bbox will be rendered.  If processing a "
          "single layer the default is to use the layer extent but if processing "
@@ -183,8 +201,9 @@ def main(infile, outfile, width, layer_name, iterate, fill_char, value_char, all
             try:
                 for feature in gj2ascii.paginate(src.filter(bbox=bbox), **kwargs):
                     click.echo(feature, file=outfile)
-                    if not no_prompt and click.prompt("Press enter for next feature or 'q + enter' to exit",
-                                                      default='', show_default=False) not in ('', os.linesep):  # pragma no cover
+                    if not no_prompt and click.prompt(
+                            "Press enter for next feature or 'q + enter' to exit",
+                            default='', show_default=False) not in ('', os.linesep):  # pragma no cover
                         raise click.Abort()
             except Exception as e:
                 if isinstance(e, click.Abort):  # pragma no cover
@@ -214,8 +233,18 @@ def main(infile, outfile, width, layer_name, iterate, fill_char, value_char, all
             value_char = gj2ascii.DEFAULT_RAMP[:len(layer_name)]
 
         rendered_layers = []
+        expected_crs = None
         for layer, value, crs, at in zip_longest(layer_name, value_char, crs_def, all_touched):
             with fio.open(infile, layer=layer, crs=crs) as src:
+
+                # Warn user of differing CRS
+                if expected_crs is None:  # pragma no cover
+                    expected_crs = src.crs
+                else:
+                    if src.crs != expected_crs:  # pragma no cover
+                        click.echo(
+                            "WARNING: Layer `%s' has a differing CRS - results may be incorrect" % layer, err=True)
+
                 r_kwargs = {
                     'width': width,
                     'value': value,
@@ -233,7 +262,8 @@ def main(infile, outfile, width, layer_name, iterate, fill_char, value_char, all
             raise click.ClickException(
                 "Only rendering 1 layer - all associated arguments can only be specified once.")
 
-        with fio.open(infile, layer=layer_name[-1] if layer_name else None, crs=crs_def[-1] if crs_def else None) as src:
+        with fio.open(
+                infile, layer=layer_name[-1] if layer_name else None, crs=crs_def[-1] if crs_def else None) as src:
             kwargs = {
                 'width': width,
                 'value': value_char[-1],
