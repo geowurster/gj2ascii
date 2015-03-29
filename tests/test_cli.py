@@ -171,10 +171,13 @@ class TestCli(unittest.TestCase):
             '--width', '20'
         ])
         print("-=-=-=-=-=-=-=-")
-        print(repr(result.output))
+        print(repr(result.output.strip()))
         print("-=-=-=-=-=-=-=-")
         print(repr(EXPECTED_STACK_PERCENT_ALL.strip()))
         print("-=-=-=-=-=-=-=-")
+        print(result.output.strip())
+        print("-=-=-=-=-=-=-=-")
+        print(EXPECTED_STACK_PERCENT_ALL.strip())
 
         self.assertEqual(result.exit_code, 0)
         self.assertTrue(compare_ascii(result.output.strip(), EXPECTED_STACK_PERCENT_ALL.strip()))
