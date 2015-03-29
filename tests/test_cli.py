@@ -3,6 +3,7 @@ Unittests for gj2ascii CLI
 """
 
 
+import os
 import tempfile
 import unittest
 
@@ -170,17 +171,17 @@ class TestCli(unittest.TestCase):
             '--layer', '%all',
             '--width', '20'
         ])
-        print("-=-=-=-=-=-=-=-")
-        print(repr(result.output.strip()))
-        print("-=-=-=-=-=-=-=-")
-        print(repr(EXPECTED_STACK_PERCENT_ALL.strip()))
-        print("-=-=-=-=-=-=-=-")
-        print(result.output.strip())
-        print("-=-=-=-=-=-=-=-")
-        print(EXPECTED_STACK_PERCENT_ALL.strip())
-
         self.assertEqual(result.exit_code, 0)
-        self.assertTrue(compare_ascii(result.output.strip(), EXPECTED_STACK_PERCENT_ALL.strip()))
+
+        # Different versions of python generate a list of layers for %all in a different order, so the test
+        # has to normalize this difference and modify the command output.
+        output = result.output
+        if output[1] != '1':
+            output.replace('0', 'z')
+            output.replace('z', '1')
+            output.replace('1', 'o')
+            output.replace('o', '0')
+        self.assertTrue(compare_ascii(output.strip(), EXPECTED_STACK_PERCENT_ALL.strip()))
 
     def test_render_one_layer_too_many_args(self):
         result = self.runner.invoke(cli.main, [
