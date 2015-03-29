@@ -4,9 +4,9 @@ Unittests for gj2ascii._core
 
 
 from collections import OrderedDict
+import itertools
 import os
 import unittest
-import warnings
 
 import fiona
 
@@ -64,16 +64,18 @@ class TestRender(unittest.TestCase):
         with self.assertRaises(ValueError):
             gj2ascii.render([], width=-1)
 
-    def test_compare_min_max_given_vs_compute_and_as_generator(self):
+    def test_compare_bbox_given_vs_detect_collection_vs_compute_vs_as_generator(self):
         # Easiest to compare these 3 things together since they are related
         with fiona.open(POLY_FILE) as src:
             given = gj2ascii.render(src, 15, bbox=src.bounds)
-            computed = gj2ascii.render(src, 15)
+            computed = gj2ascii.render([i for i in src], 15)
+            fio_collection = gj2ascii.render(src, 15)
             # Passing in a generator and not specifying x/y min/max requires the features to be iterated over twice
             # which is a problem because generators cannot be reset.  A backup of the generator should be created
             # automatically and iterated over the second time.
             generator_output = gj2ascii.render((f for f in src), 15)
-        self.assertEqual(given, computed, generator_output)
+        for pair in itertools.combinations([given, computed, fio_collection, generator_output], 2):
+            self.assertEqual(*pair)
 
     def test_with_fiona(self):
         with fiona.open(POLY_FILE) as src:

@@ -13,6 +13,7 @@ from types import GeneratorType
 from ._23 import text_type
 
 import affine
+import fiona as fio
 import numpy as np
 import rasterio
 from rasterio.features import rasterize
@@ -347,6 +348,8 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, value=DEFAULT_VALUE, al
         on the fly from all input objects.  If reading from a datasource with a
         large number of features it is advantageous to supply this parameter to
         avoid a potentially large in-memory object and expensive computation.
+        If not supplied and the input object is a `fio.Collection()` instance
+        the bbox will be automatically computed from the `bounds` property.
 
     Returns
     -------
@@ -364,15 +367,17 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, value=DEFAULT_VALUE, al
     if width <= 0:
         raise ValueError("Invalid width `%s' - must be > 0" % width)
 
+    # If the input is a generator and the min/max values were not supplied we have to compute them from the
+    # features, but we need them again later and generators cannot be reset.  This potentially creates a large
+    # in-memory object so if processing an entire layer it is best to explicitly define min/max, especially
+    # because its also faster.
     if bbox:
         x_min, y_min, x_max, y_max = bbox
 
-    else:
+    elif isinstance(ftrz, fio.Collection):
+        x_min, y_min, x_max, y_max = ftrz.bounds
 
-        # If the input is a generator and the min/max values were not supplied we have to compute them from the
-        # features, but we need them again later and generators cannot be reset.  This potentially creates a large
-        # in-memory object so if processing an entire layer it is best to explicitly define min/max, especially
-        # because its also faster.
+    else:
         if isinstance(ftrz, GeneratorType):
             coord_ftrz, ftrz = itertools.tee(ftrz)
         else:
