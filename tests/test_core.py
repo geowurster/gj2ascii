@@ -12,6 +12,7 @@ import fiona
 
 import gj2ascii
 from . import compare_ascii
+import numpy as np
 from . import POLY_FILE
 from . import EXPECTED_POLYGON_20_WIDE
 
@@ -185,3 +186,23 @@ class TestStack(unittest.TestCase):
         # Input layers have different dimensions
         with self.assertRaises(ValueError):
             gj2ascii.stack(['1', '1234'])
+
+
+class TestArray2Ascii2Array(unittest.TestCase):
+
+    def setUp(self):
+        self.ascii = '* * * * *' + os.linesep + '  *   *  ' + os.linesep + '* * * * *' + os.linesep
+        self.array = [['*', '*', '*', '*', '*'], [' ', '*', ' ', '*', ' '], ['*', '*', '*', '*', '*']]
+        self.np_array = np.array(self.array)
+
+    def test_ascii2array(self):
+        self.assertEqual(self.array, gj2ascii.ascii2array(self.ascii))
+        self.assertTrue(np.array_equal(self.np_array, np.array(gj2ascii.ascii2array(self.ascii))))
+
+    def test_array2ascii(self):
+        self.assertEqual(self.ascii, gj2ascii.array2ascii(self.array))
+        self.assertEqual(self.ascii, gj2ascii.array2ascii(self.np_array))
+
+    def test_roundhouse(self):
+        self.assertEqual(self.ascii, gj2ascii.array2ascii(gj2ascii.ascii2array(self.ascii)))
+        self.assertEqual(self.array, gj2ascii.ascii2array(gj2ascii.array2ascii(self.array)))

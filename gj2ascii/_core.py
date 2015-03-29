@@ -22,7 +22,7 @@ from shapely.geometry import mapping
 
 
 __all__ = [
-    'render', 'stack', 'dict2table', 'dict_table', 'paginate',  # 'style',
+    'render', 'stack', 'dict2table', 'dict_table', 'paginate',  'ascii2array',  'array2ascii',  # 'style',
     'DEFAULT_WIDTH', 'DEFAULT_FILL', 'DEFAULT_VALUE', 'DEFAULT_RAMP'
 ]
 
@@ -159,6 +159,72 @@ def _geometry_extractor(ftrz):
             yield obj
         else:
             raise TypeError("An input object isn't a feature, geometry, or object supporting __geo_interface__")
+
+
+def ascii2array(ascii):
+
+    """
+    Convert an ASCII rendering to an array.  The returned object is not a numpy
+    array but can easily be converted with `np.array()`.
+
+    Example input:
+
+        # Rendered ASCII
+        * * * * *
+          *   *
+        * * * * *
+
+        >>> import gj2ascii
+        >>> pprint(gj2ascii.ascii2array(rendered_ascii))
+        [['*', '*', '*', '*', '*'],
+         [' ', '*', ' ', '*', ' '],
+         ['*', '*', '*', '*', '*']]
+
+    Parameters
+    ----------
+    txt : str
+        Rendered ASCII from `render()` or `stack()`.
+
+    Returns
+    -------
+    list
+        A list where each element is a list containing one value per pixel.
+    """
+
+    return [list(row[::2]) for row in ascii.splitlines()]
+
+
+def array2ascii(arr):
+
+    """
+    Convert an array to its ASCII rendering.  Designed to take the output from
+    `ascii2array()` but will also work on a numpy array.
+
+    Example input:
+
+        # Array
+        [['*', '*', '*', '*', '*'],
+         [' ', '*', ' ', '*', ' '],
+         ['*', '*', '*', '*', '*']]
+
+        >>> import gj2ascii
+        >>> pprint(gj2ascii.ascii2array(array))
+        * * * * *
+          *   *
+        * * * * *
+
+    Parameters
+    ----------
+    arr : str
+        Rendered ASCII from `render()` or `stack()`.
+
+    Returns
+    -------
+    list
+        A list where each element is a list containing one value per pixel.
+    """
+
+    return os.linesep.join([' '.join(row) for row in arr]) + os.linesep
 
 
 def stack(rendered_layers, fill=DEFAULT_FILL):
