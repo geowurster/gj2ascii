@@ -165,6 +165,20 @@ class TestCli(unittest.TestCase):
         self.assertTrue(result.output.startswith('Error:') and
                         'Stacking' in result.output and 'specified only once' in result.output)
 
+    def test_stack_percent_all_layers(self):
+
+        # There is a superior test commented out below but it fails inconsistently on Travis to
+        # the point where I can't debug it
+        result = self.runner.invoke(cli.main, [
+            MULTILAYER_FILE,
+            '--layer', '%all',
+            '--width', '20'
+        ])
+        self.assertEqual(result.exit_code, 0)
+        self.assertTrue('0' in result.output)
+        self.assertTrue('1' in result.output)
+        self.assertEqual(len(result.output.strip().splitlines()), len(EXPECTED_STACK_PERCENT_ALL.strip().splitlines()))
+
     # def test_stack_percent_all_layers(self):
     #     result = self.runner.invoke(cli.main, [
     #         MULTILAYER_FILE,
