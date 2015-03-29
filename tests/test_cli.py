@@ -171,7 +171,7 @@ class TestCli(unittest.TestCase):
             '--width', '20'
         ])
         self.assertEqual(result.exit_code, 0)
-        self.assertTrue(compare_ascii(result.output.strip(), EXPECTED_STACK_PERCENT_ALL))
+        self.assertTrue(compare_ascii(result.output.strip(), EXPECTED_STACK_PERCENT_ALL.strip()))
 
     def test_render_one_layer_too_many_args(self):
         result = self.runner.invoke(cli.main, [
