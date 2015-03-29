@@ -181,6 +181,16 @@ class TestCli(unittest.TestCase):
             output.replace('z', '1')
             output.replace('1', 'o')
             output.replace('o', '0')
+        print("")
+        print("-=-=-=-=-=-=-=-=-")
+        print(repr(output))
+        print("-=-=-=-=-=-=-=-=-")
+        print(repr(EXPECTED_STACK_PERCENT_ALL))
+        print("-=-=-=-=-=-=-=-=-")
+        print(output)
+        print("-=-=-=-=-=-=-=-=-")
+        print(EXPECTED_STACK_PERCENT_ALL)
+        print("-=-=-=-=-=-=-=-=-")
         self.assertTrue(compare_ascii(output.strip(), EXPECTED_STACK_PERCENT_ALL.strip()))
 
     def test_render_one_layer_too_many_args(self):
