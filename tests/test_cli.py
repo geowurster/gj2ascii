@@ -173,7 +173,7 @@ class TestCli(unittest.TestCase):
         print("-=-=-=-=-=-=-=-")
         print(repr(result.output))
         print("-=-=-=-=-=-=-=-")
-        print(repr(EXPECTED_STACK_PERCENT_ALL.strip())
+        print(repr(EXPECTED_STACK_PERCENT_ALL.strip()))
         print("-=-=-=-=-=-=-=-")
 
         self.assertEqual(result.exit_code, 0)
