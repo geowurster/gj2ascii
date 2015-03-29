@@ -143,9 +143,10 @@ def _callback_bbox(ctx, param, value):
 )
 @click.option(
     '--bbox', metavar="FILE or COORDS", callback=_callback_bbox,
-    help="Render data within bounding box.  If iterating through all features "
-         "only those intersecting the bbox will be rendered.  If processing a "
-         "single layer the default is to use the layer extent but if processing "
+    help="Render data within bounding box.  Can be a path to a file or coords "
+         "as 'x_min y_min x_max y_max'.  If iterating through all features only "
+         "those intersecting the bbox will be rendered.  If processing a single "
+         "layer the default is to use the layer extent but if processing "
          "multiple layers the minimum bounding box containing all layers is "
          "computed."
 )
