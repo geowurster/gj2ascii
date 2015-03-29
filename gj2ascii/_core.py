@@ -7,7 +7,6 @@ from __future__ import division
 
 from collections import OrderedDict
 import itertools
-from io import BytesIO
 import os
 import sys
 from types import GeneratorType
@@ -22,8 +21,8 @@ from shapely.geometry import mapping
 
 
 __all__ = [
-    'render', 'stack', 'dict2table', 'dict_table', 'paginate',  'ascii2array',  'array2ascii',  # 'style',
-    'DEFAULT_WIDTH', 'DEFAULT_FILL', 'DEFAULT_VALUE', 'DEFAULT_RAMP'
+    'render', 'stack', 'dict2table', 'dict_table', 'paginate', 'ascii2array', 'array2ascii', 'style',
+    'DEFAULT_WIDTH', 'DEFAULT_FILL', 'DEFAULT_VALUE', 'DEFAULT_RAMP', 'COLOR_MAP'
 ]
 
 
@@ -277,22 +276,22 @@ def stack(rendered_layers, fill=DEFAULT_FILL):
     if len(fill) is not 1:
         raise ValueError("Invalid fill value `%s' - must be 1 character long" % fill)
 
-    output_rows = []
-    for row_stack in zip(*[_l.splitlines() for _l in rendered_layers]):
+    output_array = []
+    for row_stack in zip(*map(ascii2array, rendered_layers)):
 
         if len(set((len(_r) for _r in row_stack))) is not 1:
             raise ValueError("Input layers have heterogeneous dimensions")
 
         o_row = []
-        for pixel_stack in zip(*(r[::2] for r in row_stack)):
+        for pixel_stack in zip(*row_stack):
             opaque_pixels = [_p for _p in pixel_stack if _p != ' ']
             if len(opaque_pixels) is 0:
                 o_row.append(fill)
             else:
                 o_row.append(opaque_pixels[-1])
-        output_rows.append(' '.join(o_row))
+        output_array.append(o_row)
 
-    return os.linesep.join(output_rows) + os.linesep
+    return array2ascii(output_array)
 
 
 def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, value=DEFAULT_VALUE, all_touched=False, bbox=None):
@@ -354,10 +353,12 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, value=DEFAULT_VALUE, al
     all_touched : bool, optional
         Fill every 'pixel' the geometries touch instead of every pixel whose
         center intersects the geometry.
-    x_min, y_min, x_max, y_max : float, optional
-        If reading directly from a large datasource it is advantageous to supply
-        these parameters to avoid a potentially large in-memory object and
-        expensive computation.  Must supply all or none.
+    bbox : tuple, optional
+        A 4 element tuple consisting of x_min, y_min, x_max, y_max.  Used to
+        zoom in on a particular area of interest and if not supplied is computed
+        on the fly from all input objects.  If reading from a datasource with a
+        large number of features it is advantageous to supply this parameter to
+        avoid a potentially large in-memory object and expensive computation.
 
     Returns
     -------
@@ -418,12 +419,7 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, value=DEFAULT_VALUE, al
     if value is not None and fill != '1':
         output_array = np.char.replace(output_array, '1', value)
 
-    # np.savetxt must write to a file-like object so write and immediately read
-    # Decode bytes to string and remove the trailing newline character that numpy adds
-    with BytesIO() as _a_f:
-        np.savetxt(_a_f, output_array, fmt='%s')
-        _a_f.seek(0)
-        return _a_f.read().decode("utf-8").strip(os.linesep) + os.linesep
+    return array2ascii(output_array)
 
 
 def paginate(ftrz, properties=None, **kwargs):
@@ -461,17 +457,31 @@ def paginate(ftrz, properties=None, **kwargs):
         yield os.linesep.join(output)
 
 
-# def style(rendered_ascii, colormap=None):
-#
-#     """
-#     """
-#
-#     output = []
-#     for row in rendered_ascii.splitlines():
-#         chars = row[::2]
-#         o_row = []
-#         for c in chars:
-#             color = COLOR_MAP[colormap[c]]
-#             o_row.append((color + c + _ANSI_RESET) * 2)
-#         output.append(''.join(o_row))
-#     return os.linesep.join(output)
+def style(rendered_ascii, colormap):
+
+    """
+    Colorize an ASCII rendering.
+
+    Parameters
+    ----------
+    rendered_ascii : str
+        An ASCII rendering from `render()` or `stack()`.
+    colormap : dict
+        A dictionary where keys are color names and values are characters
+        to which the color will be applied.
+
+    Returns
+    -------
+    str
+        A formatted string containing ANSI codes that is ready for `print()`
+        or `click.echo()`.
+    """
+
+    output = []
+    for row in ascii2array(rendered_ascii):
+        o_row = []
+        for char in row:
+            color = COLOR_MAP[colormap[char]]
+            o_row.append((color + char + _ANSI_RESET) * 2)
+        output.append(''.join(o_row))
+    return os.linesep.join(output)
