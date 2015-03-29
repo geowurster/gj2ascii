@@ -1,5 +1,11 @@
 language: python
 
+sudo: false
+
+cache:
+  directories:
+    - ${HOME}/.cache/pip
+
 python:
   - "2.7"
   - "3.3"
@@ -12,10 +18,7 @@ before_install:
   - sudo apt-get install -y libgdal1h gdal-bin libgdal-dev
 
 install:
-  - pip install -r requirements.txt
-  - pip install nose
-  - pip install coverage
-  - pip install coveralls
+  - pip install -r requirements-dev.txt
   - pip install .
 
 script:
