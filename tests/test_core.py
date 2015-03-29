@@ -32,16 +32,6 @@ def test_compare_ascii():
 
 class TestDictTable(unittest.TestCase):
 
-    def test_deprecated_dict_table(self):
-        with warnings.catch_warnings():
-            test_dict = OrderedDict((
-                ('Field1', None),
-                ('__something', 'a string'),
-                ('more', 12345),
-                ('other', 1.2344566)
-            ))
-            self.assertEqual(gj2ascii.dict_table(test_dict), gj2ascii.dict2table(test_dict))
-
     def test_empty_dict(self):
         with self.assertRaises(ValueError):
             gj2ascii.dict2table({})

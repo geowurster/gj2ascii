@@ -9,7 +9,6 @@ from collections import OrderedDict
 import itertools
 import os
 from types import GeneratorType
-import warnings
 
 from ._23 import text_type
 
@@ -22,7 +21,7 @@ from shapely.geometry import mapping
 
 
 __all__ = [
-    'render', 'stack', 'dict2table', 'dict_table', 'paginate', 'ascii2array', 'array2ascii', 'style',
+    'render', 'stack', 'dict2table', 'paginate', 'ascii2array', 'array2ascii', 'style',
     'DEFAULT_WIDTH', 'DEFAULT_FILL', 'DEFAULT_VALUE', 'DEFAULT_RAMP', 'COLOR_MAP'
 ]
 
@@ -111,18 +110,6 @@ def dict2table(dictionary):
     output.append(divider)
 
     return os.linesep.join(output)
-
-
-def dict_table(*args, **kwargs):  # pragma no cover
-
-    """
-    Deprecated alias for `dict2table()`.  Will be removed before 1.0.
-    """
-
-    warnings.warn("Function `dict_table()` is deprecated and will be removed "
-                  "before 1.0 - use `dict2table()` instead.")
-
-    return dict2table(*args, **kwargs)
 
 
 def _geometry_extractor(ftrz):
