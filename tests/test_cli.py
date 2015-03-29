@@ -176,14 +176,18 @@ class TestCli(unittest.TestCase):
         # fio.listlayers() does not produce a list with the same order every time on every platform so some
         # adjustments have to be made
         output = result.output
-        # output.replace('0', 'x')
-        # output.replace('1', 'x')
-        if output.strip()[0] == '1':
-            output.replace('0', 'z')
-            output.replace('z', '1')
-            output.replace('1', 'o')
-            output.replace('o', '0')
-        self.assertTrue(compare_ascii(output.strip(), EXPECTED_STACK_PERCENT_ALL.strip()))
+        output.replace('0', 'x')
+        output.replace('1', 'x')
+        EO = EXPECTED_STACK_PERCENT_ALL
+        EO.replace('0', 'x')
+        EO.replace('1', 'x')
+        # if output.strip()[0] == '1':
+        #     output.replace('0', 'z')
+        #     output.replace('z', '1')
+        #     output.replace('1', 'o')
+        #     output.replace('o', '0')
+        # self.assertTrue(compare_ascii(output.strip(), EXPECTED_STACK_PERCENT_ALL.strip()))
+        self.assertTrue(compare_ascii(output.strip(), EO.strip()))
         self.assertTrue('0' in result.output)
         self.assertTrue('1' in result.output)
 
