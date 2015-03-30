@@ -153,20 +153,17 @@ class TestStack(unittest.TestCase):
 
     def test_standard(self):
 
-        def form(x):
-            return os.linesep.join([' '.join(line) for line in x])
+        l1 = gj2ascii.array2ascii([['*', '*', '*', '*', '*'],
+                                   [' ', ' ', '*', ' ', ' '],
+                                   ['*', '*', ' ', ' ', ' ']])
 
-        l1 = form([['*', '*', '*', '*', '*'],
-                   [' ', ' ', '*', ' ', ' '],
-                   ['*', '*', ' ', ' ', ' ']]).strip(os.linesep)
+        l2 = gj2ascii.array2ascii([[' ', ' ', ' ', '+', '+'],
+                                   [' ', '+', ' ', ' ', ' '],
+                                   [' ', ' ', '+', '+', '+']])
 
-        l2 = form([[' ', ' ', ' ', '+', '+'],
-                   [' ', '+', ' ', ' ', ' '],
-                   [' ', ' ', '+', '+', '+']]).strip(os.linesep)
-
-        eo = form([['*', '*', '*', '+', '+'],
-                   ['.', '+', '*', '.', '.'],
-                   ['*', '*', '+', '+', '+']]).strip(os.linesep)
+        eo = gj2ascii.array2ascii([['*', '*', '*', '+', '+'],
+                                   ['.', '+', '*', '.', '.'],
+                                   ['*', '*', '+', '+', '+']])
 
         self.assertEqual(gj2ascii.stack([l1, l2], fill='.').strip(os.linesep), eo.strip(os.linesep))
 
@@ -178,6 +175,13 @@ class TestStack(unittest.TestCase):
         # Input layers have different dimensions
         with self.assertRaises(ValueError):
             gj2ascii.stack(['1', '1234'])
+
+    def test_single_layer(self):
+        l1 = gj2ascii.array2ascii([['*', '*', '*', '*', '*'],
+                                   [' ', ' ', '*', ' ', ' '],
+                                   ['*', '*', ' ', ' ', ' ']])
+
+        self.assertTrue(compare_ascii(l1, gj2ascii.stack([l1])))
 
 
 class TestArray2Ascii2Array(unittest.TestCase):
@@ -218,7 +222,7 @@ class TestStyle(unittest.TestCase):
         for row in array:
             o_row = []
             for char in row:
-                o_row.append(gj2ascii.COLOR_MAP[colormap[char]] + (char * 2) + gj2ascii._core._ANSI_RESET)
+                o_row.append(gj2ascii.ANSI_COLOR_MAP[colormap[char]] + (char * 2) + gj2ascii._core._ANSI_RESET)
             expected.append(''.join(o_row))
         expected = os.linesep.join(expected)
         self.assertEqual(expected, gj2ascii.style(gj2ascii.array2ascii(array), colormap=colormap))

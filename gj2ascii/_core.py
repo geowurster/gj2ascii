@@ -23,16 +23,16 @@ from shapely.geometry import mapping
 
 __all__ = [
     'render', 'stack', 'dict2table', 'paginate', 'ascii2array', 'array2ascii', 'style',
-    'DEFAULT_WIDTH', 'DEFAULT_FILL', 'DEFAULT_VALUE', 'DEFAULT_RAMP', 'COLOR_MAP'
+    'DEFAULT_WIDTH', 'DEFAULT_FILL', 'DEFAULT_CHAR', 'DEFAULT_CHAR_RAMP', 'ANSI_COLOR_MAP', 'DEFAULT_COLOR_RAMP'
 ]
 
 
 DEFAULT_FILL = ' '
-DEFAULT_VALUE = '+'
+DEFAULT_CHAR = '+'
 DEFAULT_WIDTH = 40
-DEFAULT_RAMP = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '#', '@', '0', '=', '-', '%', '$']
+DEFAULT_CHAR_RAMP = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '#', '@', '0', '=', '-', '%', '$']
 _ANSI_RESET = '\033[0m'
-COLOR_MAP = {
+ANSI_COLOR_MAP = {
     'black': '\x1b[30m\x1b[40m',
     'red': '\x1b[31m\x1b[41m',
     'green': '\x1b[32m\x1b[42m',
@@ -283,7 +283,7 @@ def stack(rendered_layers, fill=DEFAULT_FILL):
     return array2ascii(output_array)
 
 
-def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, value=DEFAULT_VALUE, all_touched=False, bbox=None):
+def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, char=DEFAULT_CHAR, all_touched=False, bbox=None):
 
     """
     Convert GeoJSON features, geometries, or objects supporting `__geo_interface__`
@@ -359,11 +359,11 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, value=DEFAULT_VALUE, al
 
     # Values that aren't a string or 1 character wide cause rendering issues
     fill = str(fill)
-    value = str(value)
+    char = str(char)
     if len(fill) is not 1:
         raise ValueError("Invalid fill value `%s' - must be 1 character long" % fill)
-    if len(value) is not 1:
-        raise ValueError("Invalid pixel value `%s' - must be 1 character long" % value)
+    if len(char) is not 1:
+        raise ValueError("Invalid pixel value `%s' - must be 1 character long" % char)
     if width <= 0:
         raise ValueError("Invalid width `%s' - must be > 0" % width)
 
@@ -409,13 +409,13 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, value=DEFAULT_VALUE, al
     output_array = output_array.astype(np.str_)
     if fill is not None and fill != '0':
         output_array = np.char.replace(output_array, '0', fill)
-    if value is not None and fill != '1':
-        output_array = np.char.replace(output_array, '1', value)
+    if char is not None and fill != '1':
+        output_array = np.char.replace(output_array, '1', char)
 
     return array2ascii(output_array)
 
 
-def paginate(ftrz, properties=None, **kwargs):
+def paginate(ftrz, properties=None, colormap=None, **kwargs):
 
     """
     Generator to create paginated output for individual features - also handles
@@ -444,10 +444,13 @@ def paginate(ftrz, properties=None, **kwargs):
         if properties is not None:
             output.append(
                 dict2table(OrderedDict((p, item['properties'][p]) for p in properties)))
+        r = render(item, **kwargs)
+        if not colormap:
+            output.append(r)
+        else:
+            output.append(style(r, colormap=colormap))
 
-        output.append(render(item, **kwargs))
-
-        yield os.linesep.join(output)
+        yield os.linesep.join(output) + os.linesep
 
 
 def style(rendered_ascii, colormap):
@@ -474,7 +477,10 @@ def style(rendered_ascii, colormap):
     for row in ascii2array(rendered_ascii):
         o_row = []
         for char in row:
-            color = COLOR_MAP[colormap[char]]
-            o_row.append(color + (char * 2) + _ANSI_RESET)
+            try:
+                color = ANSI_COLOR_MAP[colormap[char]]
+            except KeyError:
+                raise ValueError("Unrecognized color: `%s'" % colormap[char])
+            o_row.append(color + char + ' ' + _ANSI_RESET)
         output.append(''.join(o_row))
     return os.linesep.join(output)
