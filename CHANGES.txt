@@ -2,5 +2,7 @@ Version 0.4
 -----------
 
 * Zoom in on a specific area with bbox flag and param for `render()`
-* New `stack()` function and CLI functionality
+* New `stack()` function
 * New `paginate()` function
+# New `style()` function
+* Default width is now the width of the terminal
