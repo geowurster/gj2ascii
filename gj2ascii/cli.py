@@ -35,47 +35,67 @@ import click
 import fiona as fio
 
 
-def _callback_fill_and_value(ctx, param, value):
+def _callback_char_and_fill(ctx, param, value):
 
     """
-    Click callback to validate --fill and --value.
+    This whole thing works but needs to be cleaned up.
+
+    Click callback to validate --fill and --char.  --char supports multiple
+    syntaxes but they cannot be mixed: +, blue, +=blue.
     """
+
+    invalid_color_error = "color `{color}' is invalid - must be one of the following: {valid_colors}".format(
+        valid_colors=', '.join(list(gj2ascii.ANSI_COLORMAP.keys())), color='{color}')
 
     output = OrderedDict()
 
-    if isinstance(value, string_types):
+    # If the user didn't supply anything then value=None
+    if value is None:
+        _value = ()
+    elif isinstance(value, string_types):
         _value = value,
     else:
         _value = value
 
-    for v_c in _value:
-
-        _split = v_c.split('=')
-
-        if len(_split) is 2:
-            char, color = _split
-            color = color.lower()
+    # Make sure all the input values use the same syntax
+    def get_cmode(v):
+        if '=' in v:
+            return 'c=c'
+        elif v in gj2ascii.ANSI_COLORMAP.keys():
+            return 'color'
         else:
-            char = _split[0]
-            color = None
+            return 'char'
 
-        if char in output:
-            raise click.ClickException("specified character `%s' multiple times" % char)
+    cc_pairs = []
+    cmode = None
+    for char_color in _value:
+        if cmode is None:
+            cmode = get_cmode(char_color)
+        elif cmode != get_cmode(char_color):
+            raise click.BadParameter("invalid syntax - all instances of `--char` must use the same syntax.  For "
+                                     "example, can't mix `--char +` and `--char blue` and `--char +=blue`.")
+        if cmode == 'c=c':
+            char, color = char_color.rpartition('=')[::2]
+            color = color.lower()
+            cc_pairs.append((char, color))
+        elif cmode == 'color':
+            cc_pairs.append(('lookup', char_color))
+        else:
+            cc_pairs.append((char_color, None))
+
+    for char, color in cc_pairs:
+        if char == 'lookup':
+            try:
+                char = gj2ascii.DEFAULT_COLOR_CHAR[color]
+            except KeyError:
+                raise click.BadParameter(invalid_color_error.format(color=color))
+
+        if color is not None and color not in gj2ascii.DEFAULT_COLOR_CHAR:
+            raise click.BadParameter(invalid_color_error.format(color=color))
+        elif len(char) is not 1:
+            raise click.BadParameter("value must be a single character, color, or character=color.")
         else:
             output[char] = color
-
-    _cmode = None
-    for char, color in output.items():
-
-        if _cmode is None and color in gj2ascii.ANSI_COLOR_MAP.keys():
-            _cmode = 'color'
-        elif _cmode is None and color is None:
-            _cmode = 'char'
-
-        if len(char) is not 1:
-            raise click.BadParameter("`%s' is invalid - must be a single character" % char)
-        if _cmode is 'char' and color in gj2ascii.ANSI_COLOR_MAP.keys():
-            raise click.BadParameter("specified a color - must do `--character char=color` specify for every value")
 
     return output
 
@@ -119,7 +139,7 @@ def _callback_bbox(ctx, param, value):
             with fio.open(value) as src:
                 return src.bounds
         except (OSError, IOError):
-            return [float(i) for i in value.split()]
+            return [float(i) for i in value.split(' ')]
         except Exception:
             raise click.BadParameter('must be a file or "x_min y_min x_max y_max"')
 
@@ -192,11 +212,11 @@ def _callback_infile(ctx, param, value):
     help="Iterate over input features and display each individually."
 )
 @click.option(
-    '-f', '--fill', 'fill_map', default=gj2ascii.DEFAULT_FILL, metavar='CHAR', callback=_callback_fill_and_value,
+    '-f', '--fill', 'fill_map', metavar='CHAR', default=gj2ascii.DEFAULT_FILL, callback=_callback_char_and_fill,
     help="Single character for non-geometry pixels."
 )
 @click.option(
-    '-c', '--character', 'char_map', default='+', metavar='CHAR', multiple=True, callback=_callback_fill_and_value,
+    '-c', '--char', 'char_map', metavar='CHAR', multiple=True, callback=_callback_char_and_fill,
     help="Single character for geometry pixels."
 )
 @click.option(
@@ -253,43 +273,35 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
                 --width 10 \\
                 --iterate
     """
-    
-    # ==== Additional argument adjustment and validation ==== #
+
+    if not fill_map:
+        fill_map = {gj2ascii.DEFAULT_FILL: None}
+    fill_char = list(fill_map.keys())[-1]
+
     num_layers = sum([len(layers) for ds, layers in infile])
 
-    # User didn't specify any characters/colors but the number of input layers exceeds the number of available colors.
-    if num_layers > len(gj2ascii.ANSI_COLOR_MAP) and len(char_map) is 0:
-        raise click.ClickException("can't auto-generate color ramp - number of input layers exceeds number of colors.  "
-                                   "Specify one value per layer with `--value CHARACTER`.")
-
-    # User didn't specify any characters/colors so one is auto-generated
-    elif num_layers > 1 and char_map != {gj2ascii.DEFAULT_CHAR: None}:
-        char_map = OrderedDict(
-            ((gj2ascii.DEFAULT_CHAR_RAMP, gj2ascii.DEFAULT_COLOR_MAP[str(i)]) for i in range(num_layers)))
-
-    # Make sure fill value doesn't clash with char values
-    for c in fill_map:  # This should only be one key
-        if c in char_map:
-            raise click.ClickException("fill character `%s' also specified in values: %s" % str(list(char_map.keys())))
-
-    # Merge the fill map and character map into one single colormap
-    colormap = dict(fill_map, **char_map)
-    if None in colormap.values() and len([i for i in colormap.keys() if i in gj2ascii.ANSI_COLOR_MAP.keys()]) > 0:
-        raise click.ClickException("when explicitly specifying colors a color must be assigned to every character and "
-                                   "the fill character.")
-    elif None in colormap.values():
-        colormap = {}
-
-    # ==== Iterate over all features in the input layer.  Can only process one layer. ==== #
+    # ==== Render individual features ==== #
     if iterate:
 
-        if outfile.name != sys.stdout.name:
-            no_prompt = True
+        if num_layers > 1:
+            raise click.ClickException("Can only iterate over a single layer.  Specify only one infile for single-layer "
+                                       "datasources and `INFILE,LAYERNAME` for multi-layer datasources.")
 
-        if len(infile) > 1 or num_layers > 1 or len(crs_def) > 1 \
-                or len(fill_map) > 1 or len(char_map) > 1 or len(all_touched) > 1:
+        if len(infile) > 1 or num_layers > 1 or len(crs_def) > 1 or len(char_map) > 1 or len(all_touched) > 1:
             raise click.ClickException(
-                "Can only iterate over 1 layer - all associated arguments can only be specified once")
+                "Can only iterate over 1 layer - can only specify layer-specific arguments once.")
+
+        if not char_map:
+            char_map = {gj2ascii.DEFAULT_CHAR: None}
+        if fill_char in char_map:
+            raise click.BadParameter("fill value `%s' also specified as a character.  If `--fill color` was used the "
+                                     "character selected will be an integer between >= 0 and <= 6, which may be "
+                                     "what triggered this error if that integer was also specified with `--char`."
+                                     % fill_char)
+
+        # User is writing to an output file.  Don't prompt for next feature every time.
+        if not no_prompt and hasattr(outfile, 'name') and outfile.name != sys.stdout.name:
+            no_prompt = True
 
         # The odd list slicing is due to infile looking something like this:
         # [
@@ -305,13 +317,12 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
             kwargs = {
                 'width': width,
                 'char': list(char_map.keys())[-1],
-                'fill': list(fill_map.keys())[-1],
+                'fill': fill_char,
                 'properties': properties,
                 'all_touched': all_touched[-1],
                 'bbox': bbox,
-                'colormap': colormap
+                'colormap': {k: v for k, v in dict(char_map, **fill_map).items() if v is not None}
             }
-
             try:
                 for feature in gj2ascii.paginate(src.filter(bbox=bbox), **kwargs):
                     click.echo(feature, file=outfile)
@@ -329,9 +340,27 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
     # ==== Render all input layers ==== #
     else:
 
-        if len(crs_def) is 1:
-            crs_def = crs_def * num_layers
+        # if len(crs_def) not in (1, num_layers) or len(char_map) not in (0, 1, num_layers) \
+        #     or len(all_touched) not in (1, num_layers)
 
+        # User didn't specify any characters/colors but the number of input layers exceeds the number
+        # of available colors.
+        if not char_map:
+            if num_layers > len(gj2ascii.ANSI_COLORMAP):
+                raise click.ClickException("can't auto-generate color ramp - number of input layers exceeds number of "
+                                           "colors.  Specify one `--char` per layer.")
+            elif num_layers is 1:
+                char_map = {gj2ascii.DEFAULT_CHAR: None}
+            else:
+                char_map = OrderedDict(((str(_i), gj2ascii.DEFAULT_CHAR_COLOR[str(_i)]) for _i in range(num_layers)))
+
+        if fill_char in char_map:
+            raise click.BadParameter("fill value `%s' also specified as a character.  If `--fill color` was used the "
+                                     "character selected will be an integer between >= 0 and <= 6, which may be "
+                                     "what triggered this error if that integer was also specified with `--char`."
+                                     % fill_char)
+
+        # User didn't specify a bounding box.  Compute the minimum bbox for all layers.
         if not bbox:
             coords = []
             for ds, layer_names in infile:
@@ -340,87 +369,16 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
                         coords += list(src.bounds)
             bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
 
+        # Render everything
         rendered_layers = []
         for ds, layer_names in infile:
-            for layer, crs, char, at in zip_longest(layer_names, crs_def, char_map, all_touched):
+            for layer, crs, at, char in zip_longest(layer_names, crs_def, all_touched, char_map):
                 with fio.open(ds, layer=layer, crs=crs) as src:
                     rendered_layers.append(
-                        gj2ascii.render(src, width=width, fill=' ', all_touched=at, bbox=bbox))
-        output = gj2ascii.stack(rendered_layers, fill=list(fill_map.keys())[-1])
-        if colormap:
-            output = gj2ascii.style(output, colormap=colormap)
-        click.echo(output, file=outfile)
+                        # Layers will be stacked, which requires fill to be set to a space
+                        gj2ascii.render(src, width=width, fill=' ', char=char, all_touched=at, bbox=bbox))
 
-
-
-
-
-
-
-
-
-
-
-
-    #
-    # # ===== Stack multiple layers and render as a single block
-    # elif '%all' in layer_name or len(layer_name) > 1:
-    #     for arg in (crs_def, fill_map, char_map, all_touched):
-    #         if len(arg) not in (1, len(layer_name)):
-    #             raise click.ClickException("Stacking %s layers - all associated arguments can be specified "
-    #                                        "only once to apply to all layers or once per layer." % len(layer_name))
-    #
-    #     if '%all' in layer_name:
-    #         layer_name = fio.listlayers(infile)
-    #
-    #     # User didn't specify a bounding box.  Compute the minimum bbox for all layers.
-    #     if not bbox:
-    #         coords = []
-    #         for layer, crs in zip_longest(layer_name, crs_def):
-    #             with fio.open(infile, layer=layer, crs=crs) as src:
-    #                 coords += list(src.bounds)
-    #         bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
-    #
-    #     if len(char_map) is 1:
-    #         char_map = gj2ascii.DEFAULT_RAMP[:len(layer_name)]
-    #
-    #     rendered_layers = []
-    #     expected_crs = None
-    #     for layer, value, crs, at in zip_longest(layer_name, char_map, crs_def, all_touched):
-    #         with fio.open(infile, layer=layer, crs=crs) as src:
-    #
-    #             # Warn user of differing CRS
-    #             if expected_crs is None:  # pragma no cover
-    #                 expected_crs = src.crs
-    #             else:
-    #                 if src.crs != expected_crs:  # pragma no cover
-    #                     click.echo(
-    #                         "WARNING: Layer `%s' has a differing CRS - results may be incorrect" % layer, err=True)
-    #
-    #             r_kwargs = {
-    #                 'width': width,
-    #                 'value': value,
-    #                 'fill': ' ',
-    #                 'all_touched': at,
-    #                 'bbox': bbox
-    #             }
-    #             rendered_layers.append(gj2ascii.render(src, **r_kwargs))
-    #     click.echo(gj2ascii.stack(rendered_layers, fill=fill_map), file=outfile)
-    #
-    # # ===== Simplest case - only rendering a single layer
-    # else:
-    #
-    #     if len(layer_name) > 1 or len(crs_def) > 1 or len(char_map) > 1 or len(all_touched) > 1:
-    #         raise click.ClickException(
-    #             "Only rendering 1 layer - all associated arguments can only be specified once.")
-    #
-    #     with fio.open(
-    #             infile, layer=layer_name[-1] if layer_name else None, crs=crs_def[-1] if crs_def else None) as src:
-    #         kwargs = {
-    #             'width': width,
-    #             'value': char_map[-1],
-    #             'fill': fill_map,
-    #             'all_touched': all_touched[-1],
-    #             'bbox': src.bounds if not bbox else bbox
-    #         }
-    #         click.echo(gj2ascii.render(src, **kwargs), file=outfile)
+        stacked = gj2ascii.stack(rendered_layers, fill=fill_char)
+        styled = gj2ascii.style(
+            stacked, colormap={k: v for k, v in dict(char_map, **fill_map).items() if v is not None})
+        click.echo(styled, file=outfile)

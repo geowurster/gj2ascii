@@ -60,7 +60,7 @@ class TestRender(unittest.TestCase):
         with self.assertRaises(ValueError):
             gj2ascii.render([], None, fill='asdf')
         with self.assertRaises(ValueError):
-            gj2ascii.render([], None, value='asdf')
+            gj2ascii.render([], None, char='asdf')
         with self.assertRaises(ValueError):
             gj2ascii.render([], width=-1)
 
@@ -79,7 +79,7 @@ class TestRender(unittest.TestCase):
 
     def test_with_fiona(self):
         with fiona.open(POLY_FILE) as src:
-            r = gj2ascii.render(src, width=20, fill='.', value='+', bbox=src.bounds)
+            r = gj2ascii.render(src, width=20, fill='.', char='+', bbox=src.bounds)
             self.assertEqual(EXPECTED_POLYGON_20_WIDE.strip(), r.strip())
 
 
@@ -222,7 +222,8 @@ class TestStyle(unittest.TestCase):
         for row in array:
             o_row = []
             for char in row:
-                o_row.append(gj2ascii.ANSI_COLOR_MAP[colormap[char]] + (char * 2) + gj2ascii._core._ANSI_RESET)
+                color = gj2ascii.ANSI_COLORMAP[colormap[char]]
+                o_row.append(color + char + ' ' + gj2ascii._core._ANSI_RESET)
             expected.append(''.join(o_row))
         expected = os.linesep.join(expected)
         self.assertEqual(expected, gj2ascii.style(gj2ascii.array2ascii(array), colormap=colormap))

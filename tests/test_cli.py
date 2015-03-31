@@ -119,6 +119,7 @@ class TestCli(unittest.TestCase):
         self.assertTrue(result.output.rstrip(os.linesep), "Error: KeyError('bad-prop',)")
 
     def test_write_to_file(self):
+
         with tempfile.NamedTemporaryFile('r+') as f:
             result = self.runner.invoke(cli.main, [
                 SINGLE_FEATURE_WV_FILE,
@@ -130,7 +131,7 @@ class TestCli(unittest.TestCase):
             f.seek(0)
             self.assertEqual(result.exit_code, 0)
             self.assertEqual(result.output, '')
-            self.assertTrue(compare_ascii(f.read(), EXPECTED_TWO_PROPERTIES_OUTPUT))
+            self.assertTrue(compare_ascii(f.read().strip(), EXPECTED_TWO_PROPERTIES_OUTPUT.strip()))
 
     def test_stack_layers(self):
         result = self.runner.invoke(cli.main, [
@@ -147,15 +148,12 @@ class TestCli(unittest.TestCase):
 
     def test_stack_too_many_args(self):
         result = self.runner.invoke(cli.main, [
-            MULTILAYER_FILE,
-            '--layer', 'polygons',
-            '--layer', 'lines',
-            '--value', '+',
-            '--value', '8',
-            '--value', '0'  # 2 layers but 3 values
+            MULTILAYER_FILE + ',polygons,lines',
+            '--char', '+',
+            '--char', '8',
+            '--char', '0'  # 2 layers but 3 values
         ])
         self.assertNotEqual(result.exit_code, 0)
-        print(result.output)
         self.assertTrue(result.output.startswith('Error:') and
                         'Stacking' in result.output and 'specified only once' in result.output)
 

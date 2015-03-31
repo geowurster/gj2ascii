@@ -11,8 +11,8 @@ import os
 
 def compare_ascii(out1, out2):
     # Zip over two blocks of text and compare each pair of lines
-    for o1_line, o2_line in zip(out1.strip().splitlines(), out2.strip().splitlines()):
-        if o1_line.strip() != o2_line.strip():
+    for o1_line, o2_line in zip(out1.rstrip().splitlines(), out2.rstrip().splitlines()):
+        if o1_line.rstrip() != o2_line.rstrip():
             return False
     return True
 
@@ -42,7 +42,7 @@ EXPECTED_POLYGON_20_WIDE = """
 . . . . . . + + + + . . . . . . . . . .
 . . . . . . + + + + . . . . . . . . . .
 . . . . . . . . + + . . . . . . . . . .
-""".strip()
+""".rstrip()
 
 
 EXPECTED_LINE_20_WIDE = """
@@ -136,7 +136,7 @@ EXPECTED_LINE_20_WIDE = """
 . . . . . . . . . . . . . . . . . . . +
 . . . . . . . . . . . . . . . . . . . +
 + + + + + + + + + + + + + + + + + + + +
-""".strip()
+""".rstrip()
 
 
 EXPECTED_ALL_PROPERTIES_OUTPUT = """
@@ -165,7 +165,7 @@ EXPECTED_ALL_PROPERTIES_OUTPUT = """
     + + + + + +
 + + + + + +
 + + + + +
-""".strip()
+""".rstrip()
 
 
 EXPECTED_TWO_PROPERTIES_OUTPUT = """
@@ -181,8 +181,7 @@ EXPECTED_TWO_PROPERTIES_OUTPUT = """
 + + + + +
 
 
-
-""".strip()
+""".rstrip()
 
 
 EXPECTED_STACKED = """

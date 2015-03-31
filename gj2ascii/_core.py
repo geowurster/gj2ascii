@@ -22,8 +22,8 @@ from shapely.geometry import mapping
 
 
 __all__ = [
-    'render', 'stack', 'dict2table', 'paginate', 'ascii2array', 'array2ascii', 'style',
-    'DEFAULT_WIDTH', 'DEFAULT_FILL', 'DEFAULT_CHAR', 'DEFAULT_CHAR_RAMP', 'ANSI_COLOR_MAP', 'DEFAULT_COLOR_RAMP'
+    'render', 'stack', 'dict2table', 'paginate', 'ascii2array', 'array2ascii', 'style', 'ANSI_COLORMAP',
+    'DEFAULT_WIDTH', 'DEFAULT_FILL', 'DEFAULT_CHAR', 'DEFAULT_CHAR_RAMP', 'DEFAULT_CHAR_COLOR', 'DEFAULT_COLOR_CHAR'
 ]
 
 
@@ -32,7 +32,7 @@ DEFAULT_CHAR = '+'
 DEFAULT_WIDTH = 40
 DEFAULT_CHAR_RAMP = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '#', '@', '0', '=', '-', '%', '$']
 _ANSI_RESET = '\033[0m'
-ANSI_COLOR_MAP = {
+ANSI_COLORMAP = {
     'black': '\x1b[30m\x1b[40m',
     'red': '\x1b[31m\x1b[41m',
     'green': '\x1b[32m\x1b[42m',
@@ -42,7 +42,7 @@ ANSI_COLOR_MAP = {
     'cyan': '\x1b[36m\x1b[46m',
     'white': '\x1b[37m\x1b[47m'
 }
-DEFAULT_COLOR_RAMP = {
+DEFAULT_CHAR_COLOR = {
     ' ': 'black',
     '0': 'magenta',
     '1': 'blue',
@@ -52,6 +52,7 @@ DEFAULT_COLOR_RAMP = {
     '5': 'white',
     '6': 'red'
 }
+DEFAULT_COLOR_CHAR = {v: k for k, v in DEFAULT_CHAR_COLOR.items()}
 
 
 def dict2table(dictionary):
@@ -477,10 +478,10 @@ def style(rendered_ascii, colormap):
     for row in ascii2array(rendered_ascii):
         o_row = []
         for char in row:
-            try:
-                color = ANSI_COLOR_MAP[colormap[char]]
-            except KeyError:
-                raise ValueError("Unrecognized color: `%s'" % colormap[char])
+            if char in colormap:
+                color = ANSI_COLORMAP[colormap[char]]
+            else:
+                color = ''
             o_row.append(color + char + ' ' + _ANSI_RESET)
         output.append(''.join(o_row))
     return os.linesep.join(output)
