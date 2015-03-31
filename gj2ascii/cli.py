@@ -203,9 +203,11 @@ def _callback_infile(ctx, param, value):
     help="Write to an output file instead of stdout."
 )
 @click.option(
-    '-w', '--width', type=click.INT, default=gj2ascii.DEFAULT_WIDTH,
-    help="Render geometry across N columns.  Note that a space is inserted "
-         "between each column so the actual number of columns is `(width * 2) - 1`"
+    '-w', '--width', type=click.INT, default=int(click.get_terminal_size()[0] / 2) - 1,
+    help="Render geometry across N columns.  Note that an additional character "
+         "is inserted between each column so the actual number of columns is "
+         "`(width * 2) - 1`.  By default everything is rendered across the entire "
+         "terminal window."
 )
 @click.option(
     '-i', '--iterate', is_flag=True,
@@ -353,6 +355,10 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
                 char_map = {gj2ascii.DEFAULT_CHAR: None}
             else:
                 char_map = OrderedDict(((str(_i), gj2ascii.DEFAULT_CHAR_COLOR[str(_i)]) for _i in range(num_layers)))
+        elif len(char_map) is not num_layers:
+            raise click.ClickException("number of `--char` must equal the number of layers being processed.  Found %s "
+                                       "characters and %s layers.  Characters and colors will be auto-generated if none "
+                                       "are supplied." % (len(char_map), num_layers))
 
         if fill_char in char_map:
             raise click.BadParameter("fill value `%s' also specified as a character.  If `--fill color` was used the "
@@ -371,8 +377,11 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
 
         # Render everything
         rendered_layers = []
+        overall_lyr_idx = 0
         for ds, layer_names in infile:
-            for layer, crs, at, char in zip_longest(layer_names, crs_def, all_touched, char_map):
+            for layer, crs, at in zip_longest(layer_names, crs_def, all_touched):
+                char = char_map.keys()[overall_lyr_idx]
+                overall_lyr_idx += 1
                 with fio.open(ds, layer=layer, crs=crs) as src:
                     rendered_layers.append(
                         # Layers will be stacked, which requires fill to be set to a space
