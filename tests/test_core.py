@@ -8,7 +8,7 @@ import itertools
 import os
 import unittest
 
-import fiona
+import fiona as fio
 
 import gj2ascii
 from . import compare_ascii
@@ -66,7 +66,7 @@ class TestRender(unittest.TestCase):
 
     def test_compare_bbox_given_vs_detect_collection_vs_compute_vs_as_generator(self):
         # Easiest to compare these 3 things together since they are related
-        with fiona.open(POLY_FILE) as src:
+        with fio.open(POLY_FILE) as src:
             given = gj2ascii.render(src, 15, bbox=src.bounds)
             computed = gj2ascii.render([i for i in src], 15)
             fio_collection = gj2ascii.render(src, 15)
@@ -77,8 +77,8 @@ class TestRender(unittest.TestCase):
         for pair in itertools.combinations([given, computed, fio_collection, generator_output], 2):
             self.assertEqual(*pair)
 
-    def test_with_fiona(self):
-        with fiona.open(POLY_FILE) as src:
+    def test_with_fio(self):
+        with fio.open(POLY_FILE) as src:
             r = gj2ascii.render(src, width=20, fill='.', char='+', bbox=src.bounds)
             self.assertEqual(EXPECTED_POLYGON_20_WIDE.strip(), r.strip())
 
@@ -227,3 +227,18 @@ class TestStyle(unittest.TestCase):
             expected.append(''.join(o_row))
         expected = os.linesep.join(expected)
         self.assertEqual(expected, gj2ascii.style(gj2ascii.array2ascii(array), colormap=colormap))
+
+
+def test_paginate():
+
+    char = '+'
+    fill = '.'
+    colormap = {
+        '+': 'red',
+        '.': 'black'
+    }
+    with fio.open(POLY_FILE) as src1, fio.open(POLY_FILE) as src2:
+        for paginated_feat, feat in zip(
+                gj2ascii.paginate(src1, char=char, fill=fill, colormap=colormap), src2):
+            assert paginated_feat.strip() == gj2ascii.style(
+                gj2ascii.render(feat, char=char, fill=fill), colormap=colormap)

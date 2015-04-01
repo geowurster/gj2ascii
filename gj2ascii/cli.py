@@ -57,6 +57,9 @@ def _callback_char_and_fill(ctx, param, value):
     else:
         _value = value
 
+    if len(_value) is not len(set(_value)):
+        raise click.BadParameter("all characters must be unique.")
+
     # Make sure all the input values use the same syntax
     def get_cmode(v):
         if '=' in v:
@@ -87,10 +90,10 @@ def _callback_char_and_fill(ctx, param, value):
         if char == 'lookup':
             try:
                 char = gj2ascii.DEFAULT_COLOR_CHAR[color]
-            except KeyError:
+            except KeyError:  # pragma no cover
                 raise click.BadParameter(invalid_color_error.format(color=color))
 
-        if color is not None and color not in gj2ascii.DEFAULT_COLOR_CHAR:
+        if color is not None and color not in gj2ascii.DEFAULT_COLOR_CHAR:  # pragma no cover
             raise click.BadParameter(invalid_color_error.format(color=color))
         elif len(char) is not 1:
             raise click.BadParameter("value must be a single character, color, or character=color.")
@@ -203,7 +206,7 @@ def _callback_infile(ctx, param, value):
     help="Write to an output file instead of stdout."
 )
 @click.option(
-    '-w', '--width', type=click.INT, default=int(click.get_terminal_size()[0] / 2) - 1,
+    '-w', '--width', type=click.INT, default=40,
     help="Render geometry across N columns.  Note that an additional character "
          "is inserted between each column so the actual number of columns is "
          "`(width * 2) - 1`.  By default everything is rendered across the entire "
@@ -276,22 +279,19 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
                 --iterate
     """
 
-    if not fill_map:
-        fill_map = {gj2ascii.DEFAULT_FILL: None}
     fill_char = list(fill_map.keys())[-1]
-
     num_layers = sum([len(layers) for ds, layers in infile])
 
     # ==== Render individual features ==== #
     if iterate:
 
         if num_layers > 1:
-            raise click.ClickException("Can only iterate over a single layer.  Specify only one infile for single-layer "
-                                       "datasources and `INFILE,LAYERNAME` for multi-layer datasources.")
+            raise click.ClickException("Can only iterate over a single layer.  Specify only one infile for "
+                                       "single-layer datasources and `INFILE,LAYERNAME` for multi-layer datasources.")
 
         if len(infile) > 1 or num_layers > 1 or len(crs_def) > 1 or len(char_map) > 1 or len(all_touched) > 1:
             raise click.ClickException(
-                "Can only iterate over 1 layer - can only specify layer-specific arguments once.")
+                "Can only iterate over 1 layer - all layer-specific arguments can only be specified once each.")
 
         if not char_map:
             char_map = {gj2ascii.DEFAULT_CHAR: None}
@@ -301,8 +301,8 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
                                      "what triggered this error if that integer was also specified with `--char`."
                                      % fill_char)
 
-        # User is writing to an output file.  Don't prompt for next feature every time.
-        if not no_prompt and hasattr(outfile, 'name') and outfile.name != sys.stdout.name:
+        # User is writing to an output file.  Don't prompt for next feature every time
+        if not no_prompt and hasattr(outfile, 'name') and outfile.name != '<stdout>':
             no_prompt = True
 
         # The odd list slicing is due to infile looking something like this:
@@ -356,9 +356,9 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
             else:
                 char_map = OrderedDict(((str(_i), gj2ascii.DEFAULT_CHAR_COLOR[str(_i)]) for _i in range(num_layers)))
         elif len(char_map) is not num_layers:
-            raise click.ClickException("number of `--char` must equal the number of layers being processed.  Found %s "
-                                       "characters and %s layers.  Characters and colors will be auto-generated if none "
-                                       "are supplied." % (len(char_map), num_layers))
+            raise click.ClickException("Number of `--char` arguments must equal the number of layers being processed.  "
+                                       "Found %s characters and %s layers.  Characters and colors will be generated if "
+                                       "none are supplied." % (len(char_map), num_layers))
 
         if fill_char in char_map:
             raise click.BadParameter("fill value `%s' also specified as a character.  If `--fill color` was used the "
