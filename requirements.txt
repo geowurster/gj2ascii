@@ -1,5 +1,5 @@
 setuptools
-click>=3.0
+click>=3.0,<4.0
 numpy
 rasterio
 shapely
