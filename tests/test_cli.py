@@ -239,20 +239,25 @@ class TestCli(unittest.TestCase):
             'character' in result.output and 'triggered' in result.output)
 
     def test_multilayer_compute_colormap(self):
-        expected = """
-            1
-  0 0 0 0   0
-    0       0
-      0   1 1 0
-1   0   0 0 1 0   1
-1 1   0         1 1
-    0 0 1       0
-    0 1 1
-"""
+        coords = []
+        for layer in ('polygons', 'lines'):
+            with fio.open(MULTILAYER_FILE, layer=layer) as src:
+                coords += list(src.bounds)
+        bbox = min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4])
+
+        rendered_layers = []
+        for layer, char in zip(('polygons', 'lines'), ('0', '1')):
+            with fio.open(MULTILAYER_FILE, layer=layer) as src:
+                rendered_layers.append(gj2ascii.render(src, width=10, fill=' ', char=char, bbox=bbox))
+        expected = gj2ascii.stack(rendered_layers)
+
         result = self.runner.invoke(cli.main, [
-            MULTILAYER_FILE,
+            MULTILAYER_FILE + ',polygons,lines',  # Explicitly define since layers are not consistently listed in order
             '--width', '10'
         ])
+        print(result.output)
+        print("------")
+        print(expected)
         self.assertEqual(result.exit_code, 0)
         self.assertTrue(compare_ascii(expected.strip(), result.output.strip()))
 
