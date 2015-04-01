@@ -380,7 +380,7 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
         overall_lyr_idx = 0
         for ds, layer_names in infile:
             for layer, crs, at in zip_longest(layer_names, crs_def, all_touched):
-                char = char_map.keys()[overall_lyr_idx]
+                char = list(char_map.keys())[overall_lyr_idx]
                 overall_lyr_idx += 1
                 with fio.open(ds, layer=layer, crs=crs) as src:
                     rendered_layers.append(

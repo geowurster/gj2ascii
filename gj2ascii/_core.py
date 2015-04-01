@@ -43,14 +43,14 @@ ANSI_COLORMAP = {
     'white': '\x1b[37m\x1b[47m'
 }
 DEFAULT_CHAR_COLOR = {
-    ' ': 'black',
-    '0': 'magenta',
+    '0': 'green',
     '1': 'blue',
-    '2': 'green',
+    '2': 'red',
     '3': 'yellow',
     '4': 'cyan',
-    '5': 'white',
-    '6': 'red'
+    '5': 'magenta',
+    '6': 'white',
+    '7': 'black'
 }
 DEFAULT_COLOR_CHAR = {v: k for k, v in DEFAULT_CHAR_COLOR.items()}
 
