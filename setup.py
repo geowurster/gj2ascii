@@ -65,7 +65,7 @@ setuptools.setup(
     install_requires=install_requires,
     license=license_content,
     long_description=readme_content,
-    py_modules=['gj2ascii'],
+    packages=['gj2ascii'],
     url=source,
     version=version,
     zip_safe=True,
