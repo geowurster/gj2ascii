@@ -11,9 +11,12 @@ import unittest
 import fiona as fio
 
 import gj2ascii
+import gj2ascii.core
 from . import compare_ascii
 import numpy as np
 from . import POLY_FILE
+from . import LINE_FILE
+from . import POINT_FILE
 from . import EXPECTED_POLYGON_20_WIDE
 
 
@@ -242,3 +245,75 @@ def test_paginate():
                 gj2ascii.paginate(src1, char=char, fill=fill, colormap=colormap), src2):
             assert paginated_feat.strip() == gj2ascii.style(
                 gj2ascii.render(feat, char=char, fill=fill), colormap=colormap)
+
+
+def test_bbox_from_arbitrary_iterator():
+
+    with fio.open(POLY_FILE) as c_src, fio.open(POLY_FILE) as l_src, fio.open(POLY_FILE) as g_src,\
+            fio.open(POLY_FILE) as expected:
+        # Tuple element 1 is an iterable object to test and element 2 is the expected type of the output iterator
+        test_objects = [
+            (c_src, fio.Collection),
+            ([i for i in l_src], list),
+            ((i for i in g_src), itertools._tee)
+        ]
+        for in_obj, e_type in test_objects:
+            bbox, iterator = gj2ascii.core._bbox_from_arbitrary_iterator(in_obj)
+            assert bbox == expected.bounds, "Bounds don't match: %s != %s" % (bbox, expected.bounds)
+            assert isinstance(iterator, e_type), "Output iterator is %s" % iterator
+            for e, a in zip(expected, iterator):
+                assert e['id'] == a['id'], "%s != %s" % (e['id'], a['id'])
+
+
+def test_render_multiple():
+    with fio.open(POLY_FILE) as poly, fio.open(LINE_FILE) as lines, fio.open(POINT_FILE) as points:
+        coords = list(poly.bounds) + list(lines.bounds) + list(points.bounds)
+        bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
+
+        width = 10
+        lyr_char_pairs = [(poly, '+'), (lines, '-'), (points, '*')]
+        actual = gj2ascii.render_multiple(lyr_char_pairs, width, fill='#')
+
+        rendered_layers = []
+        for l, char in lyr_char_pairs:
+            rendered_layers.append(gj2ascii.render(l, width, fill=' ', bbox=bbox, char=char))
+        expected = gj2ascii.stack(rendered_layers, fill='#')
+
+        assert compare_ascii(actual.strip(), expected.strip())
+
+
+def test_style_multiple():
+    with fio.open(POLY_FILE) as poly, fio.open(LINE_FILE) as lines, fio.open(POINT_FILE) as points:
+        coords = list(poly.bounds) + list(lines.bounds) + list(points.bounds)
+        bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
+
+        width = 10
+        lyr_color_pairs = [(poly, 'black'), (lines, 'blue'), (points, 'red')]
+        lyr_char_pairs = [(l, gj2ascii.DEFAULT_COLOR_CHAR[c]) for l, c in lyr_color_pairs]
+        actual = gj2ascii.style_multiple(lyr_color_pairs, fill='yellow', width=width, bbox=bbox)
+
+        colormap = {gj2ascii.DEFAULT_COLOR_CHAR[c]: c for l, c in lyr_color_pairs}
+        colormap['3'] = 'yellow'
+
+        expected = gj2ascii.style(
+            gj2ascii.render_multiple(lyr_char_pairs, width=width, fill='3', bbox=bbox), colormap=colormap)
+
+        assert actual == expected
+
+
+def test_style_multiple_transparent_fill():
+    with fio.open(POLY_FILE) as poly, fio.open(LINE_FILE) as lines, fio.open(POINT_FILE) as points:
+        coords = list(poly.bounds) + list(lines.bounds) + list(points.bounds)
+        bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
+
+        width = 10
+        lyr_color_pairs = [(poly, 'black'), (lines, 'blue'), (points, 'red')]
+        lyr_char_pairs = [(l, gj2ascii.DEFAULT_COLOR_CHAR[c]) for l, c in lyr_color_pairs]
+        actual = gj2ascii.style_multiple(lyr_color_pairs, fill=None, width=width, bbox=bbox)
+
+        colormap = {gj2ascii.DEFAULT_COLOR_CHAR[c]: c for l, c in lyr_color_pairs}
+
+        expected = gj2ascii.style(
+            gj2ascii.render_multiple(lyr_char_pairs, width=width, bbox=bbox), colormap=colormap)
+
+        assert actual == expected

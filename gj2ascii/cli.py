@@ -61,7 +61,7 @@ def _callback_char_and_fill(ctx, param, value):
 
     # Make sure all the input values use the same syntax
     def get_cmode(v):
-        if '=' in v:
+        if '=' in v and v != '=':
             return 'c=c'
         elif v in gj2ascii.ANSI_COLORMAP.keys():
             return 'color'

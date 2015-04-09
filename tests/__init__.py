@@ -19,6 +19,7 @@ def compare_ascii(out1, out2):
 
 POLY_FILE = os.path.join('sample-data', 'polygons.geojson')
 LINE_FILE = os.path.join('sample-data', 'lines.geojson')
+POINT_FILE = os.path.join('sample-data', 'points.geojson')
 SINGLE_FEATURE_WV_FILE = os.path.join('sample-data', 'single-feature-WV.geojson')
 MULTILAYER_FILE = os.path.join('sample-data', 'multilayer-polygon-line')
 SMALL_AOI_POLY_LINE_FILE = os.path.join('sample-data', 'small-aoi-polygon-line.geojson')
