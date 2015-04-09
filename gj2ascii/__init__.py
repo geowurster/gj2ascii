@@ -33,7 +33,7 @@ Render GeoJSON as ASCII on the commandline.
 """
 
 
-from ._core import *
+from .core import *
 
 
 __version__ = '0.3.1'

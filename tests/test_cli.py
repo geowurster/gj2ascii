@@ -129,7 +129,7 @@ class TestCli(unittest.TestCase):
             '--properties', 'bad-prop'
         ])
         self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.rstrip(os.linesep), "Error: KeyError('bad-prop',)")
+        self.assertTrue(isinstance(result.exception, KeyError))
 
     def test_write_to_file(self):
         with tempfile.NamedTemporaryFile('r+') as f:
@@ -226,18 +226,6 @@ class TestCli(unittest.TestCase):
         self.assertNotEqual(result.exit_code, 0)
         self.assertTrue(result.output.startswith('Error:') and 'single layer' in result.output)
 
-    def test_specify_fill_char_as_char_iterate(self):
-        result = self.runner.invoke(cli.main, [
-            POLY_FILE,
-            '--fill', ' ',
-            '--char', ' ',
-            '--iterate', '--no-prompt'
-        ])
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(
-            result.output.startswith('Usage:') and 'fill value' in result.output and 'Error:' in result.output and
-            'character' in result.output and 'triggered' in result.output)
-
     def test_multilayer_compute_colormap(self):
         coords = []
         for layer in ('polygons', 'lines'):
@@ -255,9 +243,6 @@ class TestCli(unittest.TestCase):
             MULTILAYER_FILE + ',polygons,lines',  # Explicitly define since layers are not consistently listed in order
             '--width', '10'
         ])
-        print(result.output)
-        print("------")
-        print(expected)
         self.assertEqual(result.exit_code, 0)
         self.assertTrue(compare_ascii(expected.strip(), result.output.strip()))
 
@@ -276,16 +261,6 @@ class TestCli(unittest.TestCase):
         ])
         self.assertEqual(result.exit_code, 0)
         self.assertTrue(compare_ascii(result.output.strip(), expected.strip()))
-
-    def test_fill_in_char(self):
-        result = self.runner.invoke(cli.main, [
-            POLY_FILE,
-            '--fill', '+',
-            '--char', '+'
-        ])
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.startswith('Usage:') and 'Error:' in result.output and 'fill' in result.output and
-                        'specified as a character' in result.output and '--char' in result.output)
 
 
 class TestCallbacks(unittest.TestCase):

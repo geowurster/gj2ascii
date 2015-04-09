@@ -1,5 +1,5 @@
 """
-Unittests for gj2ascii._core
+Unittests for gj2ascii.core
 """
 
 
@@ -121,31 +121,31 @@ class TestGeometryExtractor(unittest.TestCase):
 
     def test_exceptions(self):
         with self.assertRaises(TypeError):
-            next(gj2ascii._core._geometry_extractor([{'type': None}]))
+            next(gj2ascii.core._geometry_extractor([{'type': None}]))
 
     def test_single_object(self):
-        self.assertDictEqual(self.geometry, next(gj2ascii._core._geometry_extractor(self.geometry)))
-        self.assertDictEqual(self.feature['geometry'], next(gj2ascii._core._geometry_extractor(self.feature)))
+        self.assertDictEqual(self.geometry, next(gj2ascii.core._geometry_extractor(self.geometry)))
+        self.assertDictEqual(self.feature['geometry'], next(gj2ascii.core._geometry_extractor(self.feature)))
         self.assertDictEqual(
-            self.gi_feature.__geo_interface__['geometry'], next(gj2ascii._core._geometry_extractor(self.gi_feature)))
+            self.gi_feature.__geo_interface__['geometry'], next(gj2ascii.core._geometry_extractor(self.gi_feature)))
         self.assertDictEqual(
-            self.gi_geometry.__geo_interface__, next(gj2ascii._core._geometry_extractor(self.gi_geometry)))
+            self.gi_geometry.__geo_interface__, next(gj2ascii.core._geometry_extractor(self.gi_geometry)))
 
     def test_multiple_homogeneous(self):
-        for item in gj2ascii._core._geometry_extractor((self.geometry, self.geometry, self.geometry)):
+        for item in gj2ascii.core._geometry_extractor((self.geometry, self.geometry, self.geometry)):
             self.assertDictEqual(item, self.geometry)
-        for item in gj2ascii._core._geometry_extractor((self.feature, self.feature, self.feature)):
+        for item in gj2ascii.core._geometry_extractor((self.feature, self.feature, self.feature)):
             self.assertDictEqual(item, self.feature['geometry'])
-        for item in gj2ascii._core._geometry_extractor((self.gi_geometry, self.gi_geometry, self.gi_geometry)):
+        for item in gj2ascii.core._geometry_extractor((self.gi_geometry, self.gi_geometry, self.gi_geometry)):
             self.assertDictEqual(item, self.gi_geometry.__geo_interface__)
-        for item in gj2ascii._core._geometry_extractor((self.gi_feature, self.gi_feature, self.gi_feature)):
+        for item in gj2ascii.core._geometry_extractor((self.gi_feature, self.gi_feature, self.gi_feature)):
             self.assertDictEqual(item, self.gi_feature.__geo_interface__['geometry'])
 
     def test_multiple_heterogeneous(self):
         input_objects = (self.geometry, self.feature, self.gi_feature, self.gi_geometry)
         expected = (self.geometry, self.feature['geometry'], self.gi_feature.__geo_interface__['geometry'],
                     self.gi_geometry.__geo_interface__)
-        for expected, actual in zip(expected, gj2ascii._core._geometry_extractor(input_objects)):
+        for expected, actual in zip(expected, gj2ascii.core._geometry_extractor(input_objects)):
             self.assertDictEqual(expected, actual)
 
 
@@ -223,7 +223,7 @@ class TestStyle(unittest.TestCase):
             o_row = []
             for char in row:
                 color = gj2ascii.ANSI_COLORMAP[colormap[char]]
-                o_row.append(color + char + ' ' + gj2ascii._core._ANSI_RESET)
+                o_row.append(color + char + ' ' + gj2ascii.core._ANSI_RESET)
             expected.append(''.join(o_row))
         expected = os.linesep.join(expected)
         self.assertEqual(expected, gj2ascii.style(gj2ascii.array2ascii(array), colormap=colormap))

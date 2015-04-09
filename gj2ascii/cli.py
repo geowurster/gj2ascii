@@ -25,11 +25,10 @@ Commandline interface for gj2ascii
 
 from collections import OrderedDict
 import os
-import sys
 
 import gj2ascii
-from ._23 import zip_longest
-from ._23 import string_types
+from .pycompat import zip_longest
+from .pycompat import string_types
 
 import click
 import fiona as fio
@@ -191,8 +190,10 @@ def _callback_infile(ctx, param, value):
         _split = ds_layers.split(',')
         ds = _split[0]
         layers = _split[1:]
-        if len(layers) is 0 or '%all' in layers:
+        if ds != '-' and (len(layers) is 0 or '%all' in layers):
             layers = fio.listlayers(ds)
+        elif ds == '-':
+            layers = [None]
         output.append((ds, layers))
 
     return output
@@ -295,11 +296,6 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
 
         if not char_map:
             char_map = {gj2ascii.DEFAULT_CHAR: None}
-        if fill_char in char_map:
-            raise click.BadParameter("fill value `%s' also specified as a character.  If `--fill color` was used the "
-                                     "character selected will be an integer between >= 0 and <= 6, which may be "
-                                     "what triggered this error if that integer was also specified with `--char`."
-                                     % fill_char)
 
         # User is writing to an output file.  Don't prompt for next feature every time
         if not no_prompt and hasattr(outfile, 'name') and outfile.name != '<stdout>':
@@ -310,7 +306,21 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
         #     ('sample-data/polygons.geojson', ['polygons']),
         #     ('sample-data/multilayer-polygon-line', ['lines', 'polygons'])
         # ]
-        with fio.open(infile[-1][0], layer=infile[-1][1][-1], crs=crs_def[-1]) as src:
+        if num_layers > 0:
+            layer = infile[-1][1][-1]
+        else:
+            layer = None
+        in_ds = infile[-1][0]
+        if in_ds == '-' and not no_prompt:
+            raise click.ClickException(
+                "Unfortunately features cannot be directly iterated over when reading from "
+                "stdin.  The simplest workaround is to use `--no-prompt` and pipe the output to "
+                "`more`:" + os.linesep * 2 +
+                "    $ cat data.geojson | gj2ascii - --iterate --no-prompt | more" + os.linesep * 2 +
+                "If having this feature directly supported please submit a ticket: %s"
+                % gj2ascii.__source__
+            )
+        with fio.open(infile[-1][0], layer=layer, crs=crs_def[-1]) as src:
 
             if properties == '%all':
                 properties = src.schema['properties'].keys()
@@ -325,19 +335,12 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
                 'bbox': bbox,
                 'colormap': {k: v for k, v in dict(char_map, **fill_map).items() if v is not None}
             }
-            try:
-                for feature in gj2ascii.paginate(src.filter(bbox=bbox), **kwargs):
-                    click.echo(feature, file=outfile)
-                    if not no_prompt and click.prompt(
-                            "Press enter for next feature or 'q + enter' to exit",
-                            default='', show_default=False) not in ('', os.linesep):  # pragma no cover
-                        raise click.Abort()
-
-            except Exception as e:
-                if isinstance(e, click.Abort):  # pragma no cover
-                    raise e
-                else:
-                    raise click.ClickException(repr(e))
+            for feature in gj2ascii.paginate(src.filter(bbox=bbox), **kwargs):
+                click.echo(feature, file=outfile)
+                if not no_prompt and click.prompt(
+                        "Press enter for next feature or 'q + enter' to exit",
+                        default='', show_default=False, err=True) not in ('', os.linesep):  # pragma no cover
+                    raise click.Abort()
 
     # ==== Render all input layers ==== #
     else:
@@ -359,12 +362,8 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
             raise click.ClickException("Number of `--char` arguments must equal the number of layers being processed.  "
                                        "Found %s characters and %s layers.  Characters and colors will be generated if "
                                        "none are supplied." % (len(char_map), num_layers))
-
-        if fill_char in char_map:
-            raise click.BadParameter("fill value `%s' also specified as a character.  If `--fill color` was used the "
-                                     "character selected will be an integer between >= 0 and <= 6, which may be "
-                                     "what triggered this error if that integer was also specified with `--char`."
-                                     % fill_char)
+        if not char_map:
+            char_map = {gj2ascii.DEFAULT_CHAR: None}
 
         # User didn't specify a bounding box.  Compute the minimum bbox for all layers.
         if not bbox:
