@@ -249,13 +249,17 @@ def test_paginate():
 
 def test_bbox_from_arbitrary_iterator():
 
+    # Python 2 doesn't give direct access to an object that can be used to check if an object is an instance of tee
+    pair = itertools.tee(range(10))
+    itertools_tee_type = pair[1].__class__
+
     with fio.open(POLY_FILE) as c_src, fio.open(POLY_FILE) as l_src, fio.open(POLY_FILE) as g_src,\
             fio.open(POLY_FILE) as expected:
         # Tuple element 1 is an iterable object to test and element 2 is the expected type of the output iterator
         test_objects = [
             (c_src, fio.Collection),
             ([i for i in l_src], list),
-            ((i for i in g_src), itertools._tee)
+            ((i for i in g_src), itertools_tee_type)
         ]
         for in_obj, e_type in test_objects:
             bbox, iterator = gj2ascii.core._bbox_from_arbitrary_iterator(in_obj)
