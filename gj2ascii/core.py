@@ -10,7 +10,7 @@ import itertools
 import os
 from types import GeneratorType
 
-from ._23 import text_type
+from .pycompat import text_type
 
 import affine
 import fiona as fio

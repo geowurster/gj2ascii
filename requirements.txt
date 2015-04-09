@@ -1,6 +1,6 @@
 setuptools
-click>=3.0,<4.0
-numpy
-rasterio
+click>=3.0
+numpy>=1.8
+rasterio>=0.18
 shapely
 fiona
