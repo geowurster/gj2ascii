@@ -3,13 +3,17 @@ Unittests for gj2ascii CLI
 """
 
 
-from collections import OrderedDict
+import itertools
 import os
 import tempfile
 import unittest
 
-from gj2ascii import cli
+import click
+from click.testing import CliRunner
+import fiona as fio
+
 import gj2ascii
+from gj2ascii import cli
 from . import compare_ascii
 from . import POLY_FILE
 from . import LINE_FILE
@@ -23,10 +27,6 @@ from . import EXPECTED_STACKED
 from . import EXPECTED_STACK_PERCENT_ALL
 from . import SMALL_AOI_POLY_LINE_FILE
 from . import EXPECTED_BBOX_POLY
-
-import click
-from click.testing import CliRunner
-import fiona as fio
 
 
 class TestCli(unittest.TestCase):
@@ -111,16 +111,6 @@ class TestCli(unittest.TestCase):
         ])
         self.assertNotEqual(result.exit_code, 0)
         self.assertTrue(result.output.startswith('Error:') and 'arg' in result.output and 'layer' in result.output)
-
-    def test_same_char_twice(self):
-        result = self.runner.invoke(cli.main, [
-            POLY_FILE,
-            '--iterate',
-            '--char', '1',
-            '--char', '1'
-        ])
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.startswith('Usage:') and 'Error:' in result.output and 'unique' in result.output)
 
     def test_iterate_bad_property(self):
         result = self.runner.invoke(cli.main, [
@@ -262,18 +252,36 @@ class TestCli(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertTrue(compare_ascii(result.output.strip(), expected.strip()))
 
+    def test_same_char_twice(self):
+        width = 20
+        fill = '.'
+        char = '+'
+        with fio.open(POLY_FILE) as poly, fio.open(LINE_FILE) as line:
+            coords = list(poly.bounds) + list(line.bounds)
+            bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
+            expected = gj2ascii.render_multiple([(poly, char), (line, char)], width=width, fill=fill, bbox=bbox)
+            result = self.runner.invoke(cli.main, [
+                POLY_FILE, LINE_FILE,
+                '--width', width,
+                '--char', char,
+                '--char', char,
+                '--fill', fill
+            ])
+            self.assertEqual(result.exit_code, 0)
+            self.assertTrue(compare_ascii(expected, result.output))
+
 
 class TestCallbacks(unittest.TestCase):
 
     def test_callback_char_and_fill(self):
         testvals = {
-            'a': OrderedDict([('a', None)]),
-            ('a', 'b'): OrderedDict([('a', None), ('b', None)]),
-            'black': OrderedDict([(gj2ascii.DEFAULT_COLOR_CHAR['black'], 'black')]),
-            ('black', 'blue'): OrderedDict(
-                [(gj2ascii.DEFAULT_COLOR_CHAR['black'], 'black'), (gj2ascii.DEFAULT_COLOR_CHAR['blue'], 'blue')]),
-            ('+=red', '==yellow'): OrderedDict([('+', 'red'), ('=', 'yellow')]),
-            None: OrderedDict()
+            'a': [('a', None)],
+            ('a', 'b'): [('a', None), ('b', None)],
+            'black': [(gj2ascii.DEFAULT_COLOR_CHAR['black'], 'black')],
+            ('black', 'blue'): [
+                (gj2ascii.DEFAULT_COLOR_CHAR['black'], 'black'), (gj2ascii.DEFAULT_COLOR_CHAR['blue'], 'blue')],
+            ('+=red', '==yellow'): [('+', 'red'), ('=', 'yellow')],
+            None: []
         }
 
         for inval, expected in testvals.items():
@@ -312,3 +320,15 @@ class TestCallbacks(unittest.TestCase):
                 [round(i, 5) for i in src.bounds], [round(i, 5) for i in cli._callback_bbox(None, None, str_bounds)])
             with self.assertRaises(click.BadParameter):
                 cli._callback_bbox(None, None, 1.23)
+
+        # Bbox with invalid X values
+        with self.assertRaises(click.BadParameter):
+            cli._callback_bbox(None, None, "2 0 1 0")
+
+        # Bbox with invalid Y values
+        with self.assertRaises(click.BadParameter):
+            cli._callback_bbox(None, None, "0 2 0 1")
+
+        # Bbox with invalid X and Y values
+        with self.assertRaises(click.BadParameter):
+            cli._callback_bbox(None, None, "2 2 1 1")

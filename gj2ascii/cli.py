@@ -34,6 +34,15 @@ import click
 import fiona as fio
 
 
+def _build_colormap(c_map, f_map):
+
+    """
+    Combine a character and fill map into a single colormap
+    """
+
+    return {k: v for k, v in dict(c_map, **{k2: v2 for k2, v2 in f_map}).items() if v is not None}
+
+
 def _callback_char_and_fill(ctx, param, value):
 
     """
@@ -46,7 +55,7 @@ def _callback_char_and_fill(ctx, param, value):
     invalid_color_error = "color `{color}' is invalid - must be one of the following: {valid_colors}".format(
         valid_colors=', '.join(list(gj2ascii.ANSI_COLORMAP.keys())), color='{color}')
 
-    output = OrderedDict()
+    output = []
 
     # If the user didn't supply anything then value=None
     if value is None:
@@ -55,9 +64,6 @@ def _callback_char_and_fill(ctx, param, value):
         _value = value,
     else:
         _value = value
-
-    if len(_value) is not len(set(_value)):
-        raise click.BadParameter("all characters must be unique.")
 
     # Make sure all the input values use the same syntax
     def get_cmode(v):
@@ -97,7 +103,7 @@ def _callback_char_and_fill(ctx, param, value):
         elif len(char) is not 1:
             raise click.BadParameter("value must be a single character, color, or character=color.")
         else:
-            output[char] = color
+            output.append((char, color))
 
     return output
 
@@ -134,16 +140,20 @@ def _callback_bbox(ctx, param, value):
     Let the user specify a file for the bbox or a string with coordinates.
     """
 
-    if value is None:
-        return value
-    else:
+    if value is not None:
         try:
             with fio.open(value) as src:
-                return src.bounds
+                bbox = src.bounds
         except (OSError, IOError):
-            return [float(i) for i in value.split(' ')]
+            bbox = [float(i) for i in value.split(' ')]
         except Exception:
             raise click.BadParameter('must be a file or "x_min y_min x_max y_max"')
+        if (bbox[0] > bbox[2]) or (bbox[1] > bbox[3]):
+            raise click.BadParameter('invalid bbox: %s' % bbox)
+    else:
+        bbox = None
+
+    return bbox
 
 
 def _callback_infile(ctx, param, value):
@@ -280,7 +290,7 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
                 --iterate
     """
 
-    fill_char = list(fill_map.keys())[-1]
+    fill_char = [c[0] for c in fill_map][-1]
     num_layers = sum([len(layers) for ds, layers in infile])
 
     # ==== Render individual features ==== #
@@ -313,7 +323,7 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
         in_ds = infile[-1][0]
         if in_ds == '-' and not no_prompt:
             raise click.ClickException(
-                "Unfortunately features cannot be directly iterated over when reading from "
+                "Unfortunately features cannot yet be directly iterated over when reading from "
                 "stdin.  The simplest workaround is to use `--no-prompt` and pipe the output to "
                 "`more`:" + os.linesep * 2 +
                 "    $ cat data.geojson | gj2ascii - --iterate --no-prompt | more" + os.linesep * 2 +
@@ -328,12 +338,12 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
             # Get the last specified parameter when possible in case there's a bug in the validation above.
             kwargs = {
                 'width': width,
-                'char': list(char_map.keys())[-1],
+                'char': [_c[0] for _c in char_map][-1],
                 'fill': fill_char,
                 'properties': properties,
                 'all_touched': all_touched[-1],
                 'bbox': bbox,
-                'colormap': {k: v for k, v in dict(char_map, **fill_map).items() if v is not None}
+                'colormap': _build_colormap(char_map, fill_map)
             }
             for feature in gj2ascii.paginate(src.filter(bbox=bbox), **kwargs):
                 click.echo(feature, file=outfile)
@@ -379,7 +389,7 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
         overall_lyr_idx = 0
         for ds, layer_names in infile:
             for layer, crs, at in zip_longest(layer_names, crs_def, all_touched):
-                char = list(char_map.keys())[overall_lyr_idx]
+                char = [_c[0] for _c in char_map][overall_lyr_idx]
                 overall_lyr_idx += 1
                 with fio.open(ds, layer=layer, crs=crs) as src:
                     rendered_layers.append(
@@ -387,6 +397,5 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
                         gj2ascii.render(src, width=width, fill=' ', char=char, all_touched=at, bbox=bbox))
 
         stacked = gj2ascii.stack(rendered_layers, fill=fill_char)
-        styled = gj2ascii.style(
-            stacked, colormap={k: v for k, v in dict(char_map, **fill_map).items() if v is not None})
+        styled = gj2ascii.style(stacked, colormap=_build_colormap(char_map, fill_map))
         click.echo(styled, file=outfile)
