@@ -564,7 +564,7 @@ def render_multiple(ftr_char_pairs, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, **kw
     return stack(rendered_layers, fill=fill)
 
 
-def style_multiple(ftr_color_pairs, fill='black', **kwargs):
+def style_multiple(ftr_color_pairs, width=DEFAULT_WIDTH, fill=None, **kwargs):
 
     """
     A quick way to render and style multiple layers, features, or geometries
@@ -620,13 +620,16 @@ def style_multiple(ftr_color_pairs, fill='black', **kwargs):
         fill_char = DEFAULT_COLOR_CHAR[fill]
         colormap = {fill_char: fill}
 
+    if 'width' in kwargs:
+        del kwargs['width']
+
     ftr_char_pairs = []
     for ftrz, color in ftr_color_pairs:
         char = DEFAULT_COLOR_CHAR[color]
         ftr_char_pairs.append((ftrz, char))
         colormap[char] = color
 
-    return style(render_multiple(ftr_char_pairs, fill=fill_char, **kwargs), colormap)
+    return style(render_multiple(ftr_char_pairs, width=width, fill=fill_char, **kwargs), colormap)
 
 
 def _bbox_from_arbitrary_iterator(input_iter):

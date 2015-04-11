@@ -220,7 +220,7 @@ def _callback_infile(ctx, param, value):
     '-w', '--width', type=click.INT, default=40,
     help="Render geometry across N columns.  Note that an additional character "
          "is inserted between each column so the actual number of columns is "
-         "`(width * 2) - 1`.  By default everything is rendered across the entire "
+         "`width * 2`.  By default everything is rendered across the entire "
          "terminal window."
 )
 @click.option(
