@@ -13,7 +13,7 @@ import fiona as fio
 print("Render both layers")
 with fio.open('sample-data/polygons.geojson') as poly, \
         fio.open('sample-data/lines.geojson') as lines, \
-        fio.open('sample-data/bbox.geojson') as bbox:
+        fio.open('sample-data/small-aoi-polygon-line.geojson') as bbox:
     layermap = [
         (poly[0], '0'),
         (lines[0], '1')
@@ -25,7 +25,7 @@ print("")
 print("Render one feature from each layer")
 with fio.open('sample-data/polygons.geojson') as poly, \
         fio.open('sample-data/lines.geojson') as lines, \
-        fio.open('sample-data/bbox.geojson') as bbox:
+        fio.open('sample-data/small-aoi-polygon-line.geojson') as bbox:
     layermap = [
         (poly[0], '0'),
         (lines[0], '1')

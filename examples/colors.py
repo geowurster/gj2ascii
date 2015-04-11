@@ -20,7 +20,7 @@ print("")
 print("Render multiple overlapping layers , apply colors, and zoom in on a bbox")
 with fio.open('sample-data/polygons.geojson') as poly, \
         fio.open('sample-data/lines.geojson') as lines, \
-        fio.open('sample-data/bbox.geojson') as bbox:
+        fio.open('sample-data/small-aoi-polygon-line.geojson') as bbox:
     layermap = [
         (poly, 'red'),
         (lines, 'blue')

@@ -419,7 +419,7 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, char=DEFAULT_CHAR, all_
     return array2ascii(output_array)
 
 
-def paginate(ftrz, properties=None, colormap=None, **kwargs):
+def paginate(ftrz, width=DEFAULT_WIDTH, properties=None, colormap=None, **kwargs):
 
     """
     Generator to create paginated output for individual features - also handles
@@ -443,6 +443,9 @@ def paginate(ftrz, properties=None, colormap=None, **kwargs):
     str
         One feature (with attribute table and colors if specified) as ascii.
     """
+
+    if 'width' in kwargs:
+        del kwargs['width']
 
     for item in ftrz:
 
