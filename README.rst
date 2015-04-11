@@ -89,17 +89,8 @@ fields, ``COUNTYFP`` and ``NAME``.
 
     Press enter for the next geometry or ^C/^D or 'q' to quit...
 
-Recreate the first example with the Python API.
-
-
-
-    $ cat sample-data/polygons.geojson | gj2ascii - \
-        sample-data/lines.geojson \
-        --bbox sample-data/small-aoi-polygon-line.geojson \
-        --width 20 \
-        --char ^=red \
-        --char -=blue \
-        --fill .=green
+Recreate the first example with the Python API
+----------------------------------------------
 
 There are two ways to recreate the first example with the Python API.  If the user does not care about which characters
 are assigned to which color, use this one:
