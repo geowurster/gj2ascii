@@ -454,7 +454,7 @@ def paginate(ftrz, width=DEFAULT_WIDTH, properties=None, colormap=None, **kwargs
         if properties is not None:
             output.append(
                 dict2table(OrderedDict((p, item['properties'][p]) for p in properties)))
-        r = render(item, **kwargs)
+        r = render(item, width=width, **kwargs)
         if not colormap:
             output.append(r)
         else:
