@@ -263,7 +263,12 @@ def _callback_infile(ctx, param, value):
          "multiple layers the minimum bounding box containing all layers is "
          "computed."
 )
-def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_def, no_prompt, properties, bbox):
+@click.option(
+    '--no-color', is_flag=True,
+    help="Disable colors even if they are specify with `--char`."
+)
+def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_def, no_prompt, properties, bbox,
+         no_color):
 
     """
     Render GeoJSON on the commandline as ASCII.
@@ -345,6 +350,9 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
                 'bbox': bbox,
                 'colormap': _build_colormap(char_map, fill_map)
             }
+            if no_color:
+                kwargs['colormap'] = None
+
             for feature in gj2ascii.paginate(src.filter(bbox=bbox), **kwargs):
                 click.echo(feature, file=outfile)
                 if not no_prompt and click.prompt(
@@ -397,5 +405,8 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
                         gj2ascii.render(src, width=width, fill=' ', char=char, all_touched=at, bbox=bbox))
 
         stacked = gj2ascii.stack(rendered_layers, fill=fill_char)
-        styled = gj2ascii.style(stacked, colormap=_build_colormap(char_map, fill_map))
+        if no_color:
+            styled = stacked
+        else:
+            styled = gj2ascii.style(stacked, colormap=_build_colormap(char_map, fill_map))
         click.echo(styled, file=outfile)
