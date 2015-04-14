@@ -13,6 +13,7 @@ from types import GeneratorType
 from .pycompat import text_type
 
 import affine
+import emote
 import numpy as np
 import rasterio as rio
 from rasterio.features import rasterize
@@ -83,7 +84,11 @@ def dict2table(dictionary):
     Parameter
     ---------
     dictionary : dict
-        Keys are
+        Keys are rendered in the first column adn vals in the right.
+
+    Returns
+    -------
+    str
     """
 
     if not dictionary:
@@ -119,7 +124,7 @@ def _geometry_extractor(ftrz):
 
     """
     A generator that yields GeoJSON geometry objects extracted from various
-    input types.
+    data formats and containers.
 
     Parameters
     ----------
@@ -148,7 +153,8 @@ def _geometry_extractor(ftrz):
         elif 'coordinates' in obj:
             yield obj
         else:
-            raise TypeError("An input object isn't a feature, geometry, or object supporting __geo_interface__")
+            raise TypeError("An input object isn't a feature, geometry, or object supporting __geo_interface__: %s"
+                            % obj)
 
 
 def ascii2array(ascii):
@@ -198,7 +204,7 @@ def array2ascii(arr):
          ['*', '*', '*', '*', '*']]
 
         >>> import gj2ascii
-        >>> pprint(gj2ascii.ascii2array(array))
+        >>> print(gj2ascii.ascii2array(array))
         * * * * *
           *   *
         * * * * *
@@ -206,28 +212,25 @@ def array2ascii(arr):
     Parameters
     ----------
     arr : str
-        Rendered ASCII from `render()` or `stack()`.
+        An array with a structure similar to the output of `ascii2array()`.
 
     Returns
     -------
     list
-        A list where each element is a list containing one value per pixel.
+        A block of ASCII text similar to the output of `render()`.
     """
 
     return os.linesep.join([' '.join(row) for row in arr])
 
 
-def stack(rendered_layers, fill=DEFAULT_FILL):
+def stack(rendered_items, fill=DEFAULT_FILL):
 
     """
-    Render a stack of input layers into a single overlapping product.  Layers
-    are drawn in order according to the painters algorithm so the first layer
-    will be covered by all subsequent layers.
-
-    There are two important requirements for the 'rendered_layers' parameter.
-    Each input ASCII rendering must have its fill value set to a single space,
-    which is overwritten by the 'fill' parameter here when the layers are
-    stacked.
+    Combine multiple overlapping renderings into a single rendered product.  All
+    input renderings must have been rendered with the same width, bbox, and use
+    a single space for the fill value.  Pixels containing a single space are
+    considered transparent and overlapping geometries are merged with the painters
+    algorithm.
 
     It is important that all input layers be rendered with the same width and
     bbox to ensure that they actually represent the same spatial area.  It is
@@ -238,12 +241,12 @@ def stack(rendered_layers, fill=DEFAULT_FILL):
 
     Example:
 
-        # Rendered layer 1
+        # Rendered geometry 1
         0 0 0 0 0
             0
         0 0 0 0 0
 
-        # Rendered layer 2
+        # Rendered geometry 2
         1       1
 
         1       1
@@ -259,7 +262,7 @@ def stack(rendered_layers, fill=DEFAULT_FILL):
 
     Parameters
     ----------
-    rendered_layers : iterable
+    rendered_items : iterable
         An iterable producing one rendered layer per iteration.  Layers must
         all have the same dimension and must have been rendered with an empty
         space (' ') as the fill value.  Using the same `bbox` and `width` values
@@ -280,7 +283,7 @@ def stack(rendered_layers, fill=DEFAULT_FILL):
         raise ValueError("Invalid fill value `%s' - must be 1 character long" % fill)
 
     output_array = []
-    for row_stack in zip(*map(ascii2array, rendered_layers)):
+    for row_stack in zip(*map(ascii2array, rendered_items)):
 
         if len(set((len(_r) for _r in row_stack))) is not 1:
             raise ValueError("Input layers have heterogeneous dimensions")
@@ -349,22 +352,23 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, char=DEFAULT_CHAR, all_
         iteration.
     width : int, optional
         Number of columns in output ASCII.  A space is inserted between every
-        character so the actual output width is `(width * 2) - 1`.
+        character so the actual output width is `width * 2`.
     char : str or None, optional
-        Character to use for pixels touched by a geometry.
+        Single character to use for pixels touched by a geometry.
     fill : str or None, optional
-        character to use for pixels that are not touched by a geometry.
+        Single character to use for pixels that are not touched by a geometry.
     all_touched : bool, optional
         Fill every pixel the geometries touch instead of every pixel whose
         center intersects the geometry.
     bbox : tuple, optional
         A 4 element tuple consisting of x_min, y_min, x_max, y_max.  Used to
-        zoom in on a particular area of interest and if not supplied is computed
-        on the fly from all input objects.  If reading from a datasource with a
-        large number of features it is advantageous to supply this parameter to
-        avoid a potentially large in-memory object and expensive computation.
-        If not supplied and the input object is a `fio.Collection()` instance
-        the bbox will be automatically computed from the `bounds` property.
+        zoom in on a particular area of interest or to ensure that independent
+        renderings can be stacked later.  If not supplied it is computed on the
+        fly from all input objects.  If reading from a datasource with a large
+        number of features it is advantageous to supply this parameter to avoid
+        a potentially large in-memory object and expensive computation.  If not
+        supplied and the input object is a `fio.Collection()` instance the bbox
+        will be automatically computed from the `bounds` property.
 
     Returns
     -------
@@ -458,12 +462,12 @@ def paginate(ftrz, width=DEFAULT_WIDTH, properties=None, colormap=None, **kwargs
         if not colormap:
             output.append(r)
         else:
-            output.append(style(r, colormap=colormap))
+            output.append(style(r, stylemap=colormap))
 
         yield os.linesep.join(output) + os.linesep
 
 
-def style(rendered_ascii, colormap):
+def style(rendered_ascii, stylemap):
 
     """
     Colorize an ASCII rendering.
@@ -472,8 +476,8 @@ def style(rendered_ascii, colormap):
     ----------
     rendered_ascii : str
         An ASCII rendering from `render()` or `stack()`.
-    colormap : dict
-        A dictionary where keys are color names and values are characters
+    stylemap : dict
+        A dictionary where keys are color or emoji names and values are characters
         to which the color will be applied.
 
     Returns
@@ -486,11 +490,14 @@ def style(rendered_ascii, colormap):
     for row in ascii2array(rendered_ascii):
         o_row = []
         for char in row:
-            if char in colormap:
-                color = ANSI_COLORMAP[colormap[char]]
+            if char in stylemap:
+                emoji_or_color = stylemap[char]
+                if emoji_or_color in ANSI_COLORMAP:
+                    o_row.append(ANSI_COLORMAP[emoji_or_color] + char + ' ' + _ANSI_RESET)
+                else:
+                    o_row.append(emote.lookup(emoji_or_color) + ' ')
             else:
-                color = ''
-            o_row.append(color + char + ' ' + _ANSI_RESET)
+                o_row.append(char + ' ')
         output.append(''.join(o_row))
     return os.linesep.join(output)
 
@@ -567,7 +574,7 @@ def render_multiple(ftr_char_pairs, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, **kw
     return stack(rendered_layers, fill=fill)
 
 
-def style_multiple(ftr_color_pairs, width=DEFAULT_WIDTH, fill=None, **kwargs):
+def style_multiple(ftr_style_pairs, width=DEFAULT_WIDTH, fill=None, **kwargs):
 
     """
     A quick way to render and style multiple layers, features, or geometries
@@ -600,13 +607,18 @@ def style_multiple(ftr_color_pairs, width=DEFAULT_WIDTH, fill=None, **kwargs):
 
     Parameters
     ----------
-    ftr_color_pairs : list
+    ftr_style_pairs : list
         A list of tuples where the first element of each tuple is an object
-        suitable for `render()` and the second is the color to apply to that
-        object.
+        suitable for `render()` and the second is the color or emoji name to
+        apply to that object.
     fill : str or None, optional
         A color to use as the background color.  If `None` then no color is
-        applied.
+        applied.  Input layers are assigned a character from 0 to 9 so selecting
+        a fill value in this range will produce an output with a fill style that
+        is inherited from one of the other layers because they both have the same
+        character.  This function exists to provide a quick way to look at
+        multiple styled layers so to work around this issue use the other API
+        components to build a more specific rendering.
     kwargs : **kwargs, optional
         Additional keyword arguments for `render_multiple()`.
 
@@ -616,23 +628,29 @@ def style_multiple(ftr_color_pairs, width=DEFAULT_WIDTH, fill=None, **kwargs):
         All input layers, features, or geometries rendered, stacked, and styled.
     """
 
+    stylemap = {}
+
     if fill is None:
         fill_char = ' '
-        colormap = {}
-    else:
+    elif len(fill) is 1:
+        fill_char = fill
+    elif fill in DEFAULT_COLOR_CHAR:
         fill_char = DEFAULT_COLOR_CHAR[fill]
-        colormap = {fill_char: fill}
+        stylemap[fill_char] = fill
+    else:
+        fill_char = DEFAULT_CHAR_RAMP[-1]
+        stylemap[fill_char] = fill
 
     if 'width' in kwargs:
         del kwargs['width']
 
     ftr_char_pairs = []
-    for ftrz, color in ftr_color_pairs:
-        char = DEFAULT_COLOR_CHAR[color]
-        ftr_char_pairs.append((ftrz, char))
-        colormap[char] = color
+    for idx, ftrs_style in enumerate(ftr_style_pairs):
+        ftrs, styl = ftrs_style
+        ftr_char_pairs.append((ftrs, str(idx)))
+        stylemap[str(idx)] = styl
 
-    return style(render_multiple(ftr_char_pairs, width=width, fill=fill_char, **kwargs), colormap)
+    return style(render_multiple(ftr_char_pairs, width=width, fill=fill_char, **kwargs), stylemap)
 
 
 def _bbox_from_arbitrary_iterator(input_iter):

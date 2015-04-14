@@ -13,7 +13,7 @@ import gj2ascii
 print("Render a single layer with colors")
 with fio.open('sample-data/polygons.geojson') as src:
     rendered = gj2ascii.render(src, 40, char='+')
-    print(gj2ascii.style(rendered, colormap={'+': 'red'}))
+    print(gj2ascii.style(rendered, stylemap={'+': 'red'}))
 
 print("")
 

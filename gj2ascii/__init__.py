@@ -6,37 +6,40 @@
  \__, /_/ //____/\__,_/____/\___/_/_/
 /____/___/
 
-Render GeoJSON as ASCII on the commandline.
+Render GeoJSON as ASCII with Python.
 
->>> import gj2ascii
->>> import fiona
->>> with fiona.open(infile) as src:
-...     kwargs = dict(zip(('x_min', 'y_min', 'x_max', 'y_max'), src.bounds))
-...     print(gj2ascii.render(src, width=20, **kwargs))
-  +                       +
-  + + +
-      +
-                          +
-                  +
-                  + +
-                  + + + +
-                    + + + +
-                      + + +         +
-+ + +                   + +       + + +
-+ + + +                         + + + +
-    +             +               + +
-                + +                 +
-              + + +                 +
-            + + + +
-            + + + +
-                + +
+    >>> import fiona as fio
+    >>> import gj2ascii
+    >>> with fio.open('sample-data/polygons.geojson') as poly, \
+    ...         fio.open('sample-data/lines.geojson') as lines, \
+    ...         fio.open('sample-data/small-aoi-polygon-line.geojson') as bbox:
+    ...     charmap = [
+    ...         (poly, '2'),
+    ...         (lines, '1')
+    ...     ]
+    ...     print(gj2ascii.style_multiple(charmap, 20, fill='0', bbox=bbox.bounds))
+    0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 2 2 2 2
+    0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 2 2 2
+    0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1
+    0 0 0 0 1 0 0 0 0 0 0 0 0 1 1 1 1 1 0 2
+    2 2 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    2 2 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    2 1 2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    2 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    1 2 0 0 0 0 0 0 1 0 0 0 0 0 2 0 0 0 0 0
+    0 1 0 0 0 0 0 0 1 1 0 0 0 2 2 0 0 0 0 0
+    0 0 1 0 0 0 0 0 1 0 1 0 2 2 2 0 0 0 0 0
+    0 0 0 1 0 0 0 0 1 0 0 1 2 2 2 0 0 0 0 0
+    0 0 0 0 1 0 0 1 0 0 2 2 1 2 2 0 0 0 0 0
+    0 0 0 0 0 1 0 1 0 2 2 2 2 1 2 0 0 0 0 0
+    0 0 0 0 0 0 1 1 2 2 2 2 2 2 1 0 0 0 0 0
 """
 
 
 from .core import *
 
 
-__version__ = '0.3.1'
+__version__ = '0.4'
 __author__ = 'Kevin Wurster'
 __email__ = 'wursterk@gmail.com'
 __source__ = 'https://github.com/geowurster/gj2ascii'
