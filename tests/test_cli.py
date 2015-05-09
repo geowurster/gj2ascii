@@ -289,7 +289,7 @@ class TestCli(unittest.TestCase):
 
 class TestCallbacks(unittest.TestCase):
 
-    def test_callback_char_and_fill(self):
+    def test_cb_char_and_fill(self):
         testvals = {
             'a': [('a', None)],
             ('a', 'b'): [('a', None), ('b', None)],
@@ -303,51 +303,51 @@ class TestCallbacks(unittest.TestCase):
         }
 
         for inval, expected in testvals.items():
-            self.assertEqual(expected, cli._callback_char_and_fill(None, None, inval))
+            self.assertEqual(expected, cli._cb_char_and_fill(None, None, inval))
         with self.assertRaises(click.BadParameter):
-            cli._callback_char_and_fill(None, None, ('+=red', '-'))
+            cli._cb_char_and_fill(None, None, ('+=red', '-'))
         with self.assertRaises(click.BadParameter):
-            cli._callback_char_and_fill(None, None, 'bad-color')
+            cli._cb_char_and_fill(None, None, 'bad-color')
         with self.assertRaises(click.BadParameter):
-            cli._callback_char_and_fill(None, None, ('bad-color'))
+            cli._cb_char_and_fill(None, None, ('bad-color'))
 
-    def test_callback_properties(self):
+    def test_cb_properties(self):
 
         for v in ('%all', None):
-            self.assertEqual(v, cli._callback_properties(None, None, v))
+            self.assertEqual(v, cli._cb_properties(None, None, v))
 
         props = 'PROP1,PROP2,PROP3'
-        self.assertEqual(props.split(','), cli._callback_properties(None, None, props))
+        self.assertEqual(props.split(','), cli._cb_properties(None, None, props))
 
-    def test_callback_multiple_default(self):
+    def test_cb_multiple_default(self):
 
         values = ('1', '2')
-        self.assertEqual(values, cli._callback_multiple_default(None, None, values))
+        self.assertEqual(values, cli._cb_multiple_default(None, None, values))
         values = '1'
-        self.assertEqual((values), cli._callback_multiple_default(None, None, values))
+        self.assertEqual((values), cli._cb_multiple_default(None, None, values))
 
-    def test_callback_bbox(self):
+    def test_cb_bbox(self):
 
         bbox_file = 'sample-data/polygons.geojson'
 
         with fio.open(bbox_file) as src:
             str_bounds = ' '.join([str(i) for i in src.bounds])
-            self.assertEqual(None, cli._callback_bbox(None, None, None))
-            self.assertEqual(src.bounds, cli._callback_bbox(None, None, bbox_file))
+            self.assertEqual(None, cli._cb_bbox(None, None, None))
+            self.assertEqual(src.bounds, cli._cb_bbox(None, None, bbox_file))
             self.assertEqual(
                 [round(i, 5) for i in src.bounds],
-                [round(i, 5) for i in cli._callback_bbox(None, None, str_bounds)])
+                [round(i, 5) for i in cli._cb_bbox(None, None, str_bounds)])
             with self.assertRaises(click.BadParameter):
-                cli._callback_bbox(None, None, 1.23)
+                cli._cb_bbox(None, None, 1.23)
 
         # Bbox with invalid X values
         with self.assertRaises(click.BadParameter):
-            cli._callback_bbox(None, None, "2 0 1 0")
+            cli._cb_bbox(None, None, "2 0 1 0")
 
         # Bbox with invalid Y values
         with self.assertRaises(click.BadParameter):
-            cli._callback_bbox(None, None, "0 2 0 1")
+            cli._cb_bbox(None, None, "0 2 0 1")
 
         # Bbox with invalid X and Y values
         with self.assertRaises(click.BadParameter):
-            cli._callback_bbox(None, None, "2 2 1 1")
+            cli._cb_bbox(None, None, "2 2 1 1")
