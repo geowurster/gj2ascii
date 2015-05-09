@@ -200,26 +200,17 @@ class TestCli(unittest.TestCase):
                         '--char' in result.output)
 
     def test_bbox(self):
-        result_with_file = self.runner.invoke(cli.main, [
-            POLY_FILE,
-            '--width', '20',
-            '--bbox', SMALL_AOI_POLY_LINE_FILE,
-            '--char', '+'
-        ])
         with fio.open(SMALL_AOI_POLY_LINE_FILE) as src:
-            result_with_bbox = self.runner.invoke(cli.main, [
+            cmd = [
                 POLY_FILE,
                 '--width', '20',
-                '--bbox', ' '.join([str(i) for i in src.bounds]),
-                '--char', '+'
-            ])
-        self.assertEqual(result_with_file.exit_code, 0)
-        self.assertEqual(result_with_bbox.exit_code, 0)
+                '--char', '+',
+                '--bbox',
+            ] + list(map(str, src.bounds))
+            result = self.runner.invoke(cli.main, cmd)
+        self.assertEqual(result.exit_code, 0)
         self.assertTrue(compare_ascii(
-            result_with_file.output.strip(), EXPECTED_BBOX_POLY.strip()))
-        self.assertTrue(compare_ascii(
-            result_with_bbox.output.strip(), EXPECTED_BBOX_POLY.strip()))
-        self.assertEqual(result_with_bbox.output, result_with_file.output)
+            result.output.strip(), EXPECTED_BBOX_POLY.strip()))
 
     def test_iterate_too_many_layers(self):
         result = self.runner.invoke(cli.main, [

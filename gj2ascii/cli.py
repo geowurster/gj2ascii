@@ -118,23 +118,15 @@ def _cb_multiple_default(ctx, param, value):
 def _cb_bbox(ctx, param, value):
 
     """
-    Let the user specify a file for the bbox or a string with coordinates.
+    Validate ``--bbox`` by making sure it doesn't form a 'bow-tie'.
     """
 
     if value is not None:
-        try:
-            with fio.open(value) as src:
-                bbox = src.bounds
-        except (OSError, IOError):
-            bbox = [float(i) for i in value.split(' ')]
-        except Exception:
-            raise click.BadParameter('must be a file or "x_min y_min x_max y_max"')
-        if (bbox[0] > bbox[2]) or (bbox[1] > bbox[3]):
-            raise click.BadParameter('invalid bbox: %s' % bbox)
-    else:
-        bbox = None
+        x_min, y_min, x_max, y_max = value
+        if (x_min > x_max) or (y_min > y_max):
+            raise click.BadParameter('self-intersection: {bbox}'.format(bbox=' '.join(value)))
 
-    return bbox
+    return value
 
 
 def _cb_infile(ctx, param, value):
@@ -239,10 +231,9 @@ def _cb_infile(ctx, param, value):
          "`%all` for all."
 )
 @click.option(
-    '--bbox', metavar="FILE or COORDS", callback=_cb_bbox,
-    help="Render data within bounding box.  Can be a path to a file or coords as "
-         "'x_min y_min x_max y_max'.  If not supplied a minimum bounding box will be computed "
-         "from all input layers, which can be expensive."
+    '--bbox', nargs=4, type=click.FLOAT, metavar="X_MIN Y_MIN X_MAX Y_MAX", callback=_cb_bbox,
+    help="Only render data within the bounding box.  If not specified a minimum bounding box "
+         "will be computed from all input layers, which can be expensive."
 )
 @click.option(
     '--no-color', is_flag=True,
