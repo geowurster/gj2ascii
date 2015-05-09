@@ -7,8 +7,8 @@ python:
 
 before_install:
   - sudo add-apt-repository -y ppa:ubuntugis/ppa
-  # - sudo apt-get update -qq
-  - apt-get update || echo "ignoring rabbitmq.com apt"
+  - sudo apt-get update -qq
+  # - sudo apt-get update || echo "ignoring rabbitmq.com apt"
   - sudo apt-get install -y libgdal1h gdal-bin libgdal-dev
 
 install:
