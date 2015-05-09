@@ -48,7 +48,7 @@ def _build_colormap(c_map, f_map):
     return {k: v for k, v in dict(c_map.items(), **f_map).items() if v is not None}
 
 
-def _callback_char_and_fill(ctx, param, value):
+def _cb_char_and_fill(ctx, param, value):
 
     """
     This whole thing works but needs to be cleaned up.
@@ -89,7 +89,7 @@ def _callback_char_and_fill(ctx, param, value):
     return output
 
 
-def _callback_properties(ctx, param, value):
+def _cb_properties(ctx, param, value):
 
     """
     Click callback to validate --parameters.
@@ -101,7 +101,7 @@ def _callback_properties(ctx, param, value):
         return value.split(',')
 
 
-def _callback_multiple_default(ctx, param, value):
+def _cb_multiple_default(ctx, param, value):
 
     """
     Options that can be specified multiple times are an empty tuple if they are
@@ -115,7 +115,7 @@ def _callback_multiple_default(ctx, param, value):
         return value
 
 
-def _callback_bbox(ctx, param, value):
+def _cb_bbox(ctx, param, value):
 
     """
     Let the user specify a file for the bbox or a string with coordinates.
@@ -137,7 +137,7 @@ def _callback_bbox(ctx, param, value):
     return bbox
 
 
-def _callback_infile(ctx, param, value):
+def _cb_infile(ctx, param, value):
 
     """
     Let the user specify a datasource and its layers in a single argument.
@@ -192,7 +192,7 @@ def _callback_infile(ctx, param, value):
 
 @click.command()
 @click.version_option(version=gj2ascii.__version__)
-@click.argument('infile', nargs=-1, required=True, callback=_callback_infile)
+@click.argument('infile', nargs=-1, required=True, callback=_cb_infile)
 @click.option(
     '-o', '--outfile', type=click.File(mode='w'), default='-',
     help="Write to an output file instead of stdout."
@@ -208,11 +208,11 @@ def _callback_infile(ctx, param, value):
 )
 @click.option(
     '-f', '--fill', 'fill_map', metavar='CHAR', default=gj2ascii.DEFAULT_FILL,
-    callback=_callback_char_and_fill,
+    callback=_cb_char_and_fill,
     help="Single character to use for pixels that are not covered by a geometry."
 )
 @click.option(
-    '-c', '--char', 'char_map', metavar='CHAR', multiple=True, callback=_callback_char_and_fill,
+    '-c', '--char', 'char_map', metavar='CHAR', multiple=True, callback=_cb_char_and_fill,
     help="Character to use for pixels that intersect a geometry.  Several syntaxes are "
          "supported: `-c +`, `-c blue`, and `-c +=blue`.  The first will use + and no color, "
          "the second will select a character in the range 0 to 9 and produce blue geometries, "
@@ -220,12 +220,12 @@ def _callback_infile(ctx, param, value):
 )
 @click.option(
     '--all-touched / --no-all-touched', '-at / -nat', multiple=True, default=False,
-    callback=_callback_multiple_default,
+    callback=_cb_multiple_default,
     help="Fill all pixels that intersect a geometry instead of those whose center intersects "
          "a geometry."
 )
 @click.option(
-    '--crs', 'crs_def', metavar='DEF', multiple=True, callback=_callback_multiple_default,
+    '--crs', 'crs_def', metavar='DEF', multiple=True, callback=_cb_multiple_default,
     help="Specify input CRS.  No transformations are performed but this will override the "
          "input CRS or assign a new one."
 )
@@ -234,12 +234,12 @@ def _callback_infile(ctx, param, value):
     help="Print all geometries without pausing in between."
 )
 @click.option(
-    '-p', '--properties', metavar='NAME,NAME,...', callback=_callback_properties,
+    '-p', '--properties', metavar='NAME,NAME,...', callback=_cb_properties,
     help="When iterating over features display the specified fields above each geometry.  Use "
          "`%all` for all."
 )
 @click.option(
-    '--bbox', metavar="FILE or COORDS", callback=_callback_bbox,
+    '--bbox', metavar="FILE or COORDS", callback=_cb_bbox,
     help="Render data within bounding box.  Can be a path to a file or coords as "
          "'x_min y_min x_max y_max'.  If not supplied a minimum bounding box will be computed "
          "from all input layers, which can be expensive."
@@ -315,9 +315,8 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
             # This exception blocks a feature - see the content for more info.
             raise click.ClickException(
                 "Unfortunately features cannot yet be directly iterated over when reading "
-                "from stdin.  The simplest workaround is to use:" +
-                os.linesep * 2 +
-                "    $ cat data.geojson | gj2ascii - --iterate --no-prompt | more" +
+                "from stdin.  The simplest workaround is to use:" + os.linesep * 2 +
+                "    $ cat data.geojson | gj2ascii - --iterate --no-prompt | more" + 
                 os.linesep * 2 +
                 "This issue has been logged: https://github.com/geowurster/gj2ascii/issues/25"
             )
