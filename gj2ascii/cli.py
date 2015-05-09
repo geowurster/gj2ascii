@@ -39,9 +39,9 @@ from .pycompat import string_types
 
 import click
 import fiona as fio
-try:
+try:  # pragma no cover
     import emoji
-except ImportError:
+except ImportError:  # pragma no cover
     emoji = None
 
 
@@ -251,11 +251,12 @@ def _cb_infile(ctx, param, value):
          "will be computed from all input layers, which can be expensive."
 )
 @click.option(
-    '--no-color', is_flag=True,
-    help="Disable colors even if they are specify with `--char`."
+    '--no-style', is_flag=True,
+    help="Disable colors and emoji even if they are specify with `--char`.  Emoji will be "
+         "displayed as a single random character."
 )
 def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_def, no_prompt,
-         properties, bbox, no_color):
+         properties, bbox, no_style):
 
     """
     Render spatial vector data on the commandline as ASCII.
@@ -343,7 +344,7 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
                 'bbox': bbox,
                 'colormap': _build_colormap(char_map, fill_map)
             }
-            if no_color:
+            if no_style:
                 kwargs['colormap'] = None
 
             for feature in gj2ascii.paginate(src.filter(bbox=bbox), **kwargs):
@@ -403,7 +404,7 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
                             src, width=width, fill=' ', char=char, all_touched=at, bbox=bbox))
 
         stacked = gj2ascii.stack(rendered_layers, fill=fill_char)
-        if no_color:
+        if no_style:
             styled = stacked
         else:
             styled = gj2ascii.style(stacked, stylemap=_build_colormap(char_map, fill_map))
