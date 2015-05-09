@@ -80,7 +80,7 @@ def _cb_char_and_fill(ctx, param, value):
         elif len(val) >= 3 and val.startswith(':') and val.endswith(':'):
             output.append('EMOJI-' + val)
             if emoji is None:
-                raise click.BadParameter('detect an emoji but could not import the emoji '
+                raise click.BadParameter('detected an emoji but could not import the emoji '
                                          'library.  Please `pip install emoji`.')
         else:
             try:
