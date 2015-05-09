@@ -3,7 +3,7 @@ Unittests for gj2ascii CLI
 """
 
 
-import itertools
+from collections import OrderedDict
 import os
 import tempfile
 import unittest
@@ -61,21 +61,28 @@ class TestCli(unittest.TestCase):
     def test_bad_fill_value(self):
         result = self.runner.invoke(cli.main, ['-c toolong', POLY_FILE])
         self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.startswith('Usage:') and
-                        'Error:' in result.output and 'must be a single character' in result.output)
+        self.assertTrue(
+            result.output.startswith('Usage:') and 'Error:' in result.output and
+            'must be a single character' in result.output)
 
     def test_bad_rasterize_value(self):
         result = self.runner.invoke(cli.main, ['-f toolong', POLY_FILE])
         self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.startswith('Usage:') and
-                        'Error:' in result.output and 'must be a single character' in result.output)
+        self.assertTrue(
+            result.output.startswith('Usage:') and 'Error:' in result.output and
+            'must be a single character' in result.output)
 
     def test_different_width(self):
         fill = '+'
         value = '.'
         width = 31
-        result = self.runner.invoke(cli.main,
-                                    ['--width', width, POLY_FILE, '--fill', fill, '--char', value, '--no-prompt'])
+        result = self.runner.invoke(cli.main, [
+            '--width', width,
+            POLY_FILE,
+            '--fill', fill,
+            '--char', value,
+            '--no-prompt'
+        ])
         self.assertEqual(result.exit_code, 0)
         for line in result.output.rstrip(os.linesep).splitlines():
             if line.startswith((fill, value)):
@@ -89,7 +96,8 @@ class TestCli(unittest.TestCase):
             '--iterate', '--no-prompt'
         ])
         self.assertEqual(result.exit_code, 0)
-        self.assertTrue(compare_ascii(result.output.strip(), EXPECTED_ALL_PROPERTIES_OUTPUT.strip()))
+        self.assertTrue(
+            compare_ascii(result.output.strip(), EXPECTED_ALL_PROPERTIES_OUTPUT.strip()))
 
     def test_paginate_with_two_properties(self):
         result = self.runner.invoke(cli.main, [
@@ -100,7 +108,8 @@ class TestCli(unittest.TestCase):
             '--iterate', '--no-prompt'
         ])
         self.assertEqual(result.exit_code, 0)
-        self.assertTrue(compare_ascii(result.output.strip(), EXPECTED_TWO_PROPERTIES_OUTPUT.strip()))
+        self.assertTrue(compare_ascii(
+            result.output.strip(), EXPECTED_TWO_PROPERTIES_OUTPUT.strip()))
 
     def test_iterate_wrong_arg_count(self):
         result = self.runner.invoke(cli.main, [
@@ -110,7 +119,8 @@ class TestCli(unittest.TestCase):
             '--char', '2'
         ])
         self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.startswith('Error:') and 'arg' in result.output and 'layer' in result.output)
+        self.assertTrue(result.output.startswith('Error:') and 'arg' in result.output and
+                        'layer' in result.output)
 
     def test_iterate_bad_property(self):
         result = self.runner.invoke(cli.main, [
@@ -134,9 +144,11 @@ class TestCli(unittest.TestCase):
             ])
             f.seek(0)
             print(result.output)
+            print(result.exception)
             self.assertEqual(result.exit_code, 0)
             self.assertEqual(result.output, '')
-            self.assertTrue(compare_ascii(f.read().strip(), EXPECTED_TWO_PROPERTIES_OUTPUT.strip()))
+            self.assertTrue(
+                compare_ascii(f.read().strip(), EXPECTED_TWO_PROPERTIES_OUTPUT.strip()))
 
     def test_styled_write_to_file(self):
         with fio.open(SINGLE_FEATURE_WV_FILE) as src:
@@ -174,8 +186,9 @@ class TestCli(unittest.TestCase):
             '--char', '0'  # 2 layers but 3 values
         ])
         self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.startswith('Error:') and
-                        '--char' in result.output and 'number' in result.output and 'equal' in result.output)
+        self.assertTrue(
+            result.output.startswith('Error:') and '--char' in result.output and 'number' in
+            result.output and 'equal' in result.output)
 
     def test_render_one_layer_too_many_args(self):
         result = self.runner.invoke(cli.main, [
@@ -184,29 +197,21 @@ class TestCli(unittest.TestCase):
             '--char', '8'
         ])
         self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.startswith('Error:') and 'number' in result.output and '--char' in result.output)
+        self.assertTrue(result.output.startswith('Error:') and 'number' in result.output and
+                        '--char' in result.output)
 
     def test_bbox(self):
-        result_with_file = self.runner.invoke(cli.main, [
-            POLY_FILE,
-            '--width', '20',
-            '--bbox', SMALL_AOI_POLY_LINE_FILE,
-            '--char', '+'
-        ])
         with fio.open(SMALL_AOI_POLY_LINE_FILE) as src:
-            result_with_bbox = self.runner.invoke(cli.main, [
+            cmd = [
                 POLY_FILE,
                 '--width', '20',
-                '--bbox', ' '.join([str(i) for i in src.bounds]),
-                '--char', '+'
-            ])
-        self.assertEqual(result_with_file.exit_code, 0)
-        self.assertEqual(result_with_bbox.exit_code, 0)
+                '--char', '+',
+                '--bbox',
+            ] + list(map(str, src.bounds))
+            result = self.runner.invoke(cli.main, cmd)
+        self.assertEqual(result.exit_code, 0)
         self.assertTrue(compare_ascii(
-            result_with_file.output.strip(), EXPECTED_BBOX_POLY.strip()))
-        self.assertTrue(compare_ascii(
-            result_with_bbox.output.strip(), EXPECTED_BBOX_POLY.strip()))
-        self.assertEqual(result_with_bbox.output, result_with_file.output)
+            result.output.strip(), EXPECTED_BBOX_POLY.strip()))
 
     def test_iterate_too_many_layers(self):
         result = self.runner.invoke(cli.main, [
@@ -226,11 +231,13 @@ class TestCli(unittest.TestCase):
         rendered_layers = []
         for layer, char in zip(('polygons', 'lines'), ('0', '1')):
             with fio.open(MULTILAYER_FILE, layer=layer) as src:
-                rendered_layers.append(gj2ascii.render(src, width=10, fill=' ', char=char, bbox=bbox))
+                rendered_layers.append(
+                    gj2ascii.render(src, width=10, fill=' ', char=char, bbox=bbox))
         expected = gj2ascii.stack(rendered_layers)
 
+        # Explicitly define since layers are not consistently listed in order
         result = self.runner.invoke(cli.main, [
-            MULTILAYER_FILE + ',polygons,lines',  # Explicitly define since layers are not consistently listed in order
+            MULTILAYER_FILE + ',polygons,lines',
             '--width', '10'
         ])
         self.assertEqual(result.exit_code, 0)
@@ -259,7 +266,8 @@ class TestCli(unittest.TestCase):
         with fio.open(POLY_FILE) as poly, fio.open(LINE_FILE) as line:
             coords = list(poly.bounds) + list(line.bounds)
             bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
-            expected = gj2ascii.render_multiple([(poly, char), (line, char)], width=width, fill=fill, bbox=bbox)
+            expected = gj2ascii.render_multiple(
+                [(poly, char), (line, char)], width=width, fill=fill, bbox=bbox)
             result = self.runner.invoke(cli.main, [
                 POLY_FILE, LINE_FILE,
                 '--width', width,
@@ -273,62 +281,62 @@ class TestCli(unittest.TestCase):
 
 class TestCallbacks(unittest.TestCase):
 
-    def test_callback_char_and_fill(self):
+    def test_cb_char_and_fill(self):
         testvals = {
             'a': [('a', None)],
             ('a', 'b'): [('a', None), ('b', None)],
             'black': [(gj2ascii.DEFAULT_COLOR_CHAR['black'], 'black')],
             ('black', 'blue'): [
-                (gj2ascii.DEFAULT_COLOR_CHAR['black'], 'black'), (gj2ascii.DEFAULT_COLOR_CHAR['blue'], 'blue')],
+                (gj2ascii.DEFAULT_COLOR_CHAR['black'], 'black'),
+                (gj2ascii.DEFAULT_COLOR_CHAR['blue'], 'blue')
+            ],
             ('+=red', '==yellow'): [('+', 'red'), ('=', 'yellow')],
             None: []
         }
 
+        # The callback can return a list of tuples or a list of lists.  Force test to compare
+        # list to list.
         for inval, expected in testvals.items():
-            self.assertEqual(expected, cli._callback_char_and_fill(None, None, inval))
+            expected = [list(i) for i in expected]
+            actual = [list(i) for i in cli._cb_char_and_fill(None, None, inval)]
+            self.assertEqual(expected, actual)
         with self.assertRaises(click.BadParameter):
-            cli._callback_char_and_fill(None, None, ('+=red', '-'))
+            cli._cb_char_and_fill(None, None, 'bad-color')
         with self.assertRaises(click.BadParameter):
-            cli._callback_char_and_fill(None, None, 'bad-color')
-        with self.assertRaises(click.BadParameter):
-            cli._callback_char_and_fill(None, None, ('bad-color'))
+            cli._cb_char_and_fill(None, None, ('bad-color'))
 
-    def test_callback_properties(self):
+    def test_cb_properties(self):
 
         for v in ('%all', None):
-            self.assertEqual(v, cli._callback_properties(None, None, v))
+            self.assertEqual(v, cli._cb_properties(None, None, v))
 
         props = 'PROP1,PROP2,PROP3'
-        self.assertEqual(props.split(','), cli._callback_properties(None, None, props))
+        self.assertEqual(props.split(','), cli._cb_properties(None, None, props))
 
-    def test_callback_multiple_default(self):
+    def test_cb_multiple_default(self):
 
         values = ('1', '2')
-        self.assertEqual(values, cli._callback_multiple_default(None, None, values))
+        self.assertEqual(values, cli._cb_multiple_default(None, None, values))
         values = '1'
-        self.assertEqual((values), cli._callback_multiple_default(None, None, values))
+        self.assertEqual((values), cli._cb_multiple_default(None, None, values))
 
-    def test_callback_bbox(self):
+    def test_cb_bbox(self):
 
         bbox_file = 'sample-data/polygons.geojson'
 
         with fio.open(bbox_file) as src:
-            str_bounds = ' '.join([str(i) for i in src.bounds])
-            self.assertEqual(None, cli._callback_bbox(None, None, None))
-            self.assertEqual(src.bounds, cli._callback_bbox(None, None, bbox_file))
-            self.assertEqual(
-                [round(i, 5) for i in src.bounds], [round(i, 5) for i in cli._callback_bbox(None, None, str_bounds)])
-            with self.assertRaises(click.BadParameter):
-                cli._callback_bbox(None, None, 1.23)
+
+            self.assertEqual(None, cli._cb_bbox(None, None, None))
+            self.assertEqual(src.bounds, cli._cb_bbox(None, None, src.bounds))
 
         # Bbox with invalid X values
         with self.assertRaises(click.BadParameter):
-            cli._callback_bbox(None, None, "2 0 1 0")
+            cli._cb_bbox(None, None, (2, 0, 1, 0,))
 
         # Bbox with invalid Y values
         with self.assertRaises(click.BadParameter):
-            cli._callback_bbox(None, None, "0 2 0 1")
+            cli._cb_bbox(None, None, (0, 2, 0, 1))
 
         # Bbox with invalid X and Y values
         with self.assertRaises(click.BadParameter):
-            cli._callback_bbox(None, None, "2 2 1 1")
+            cli._cb_bbox(None, None, (2, 2, 1, 1,))
