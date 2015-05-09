@@ -295,7 +295,7 @@ def test_bbox_from_arbitrary_iterator():
             ((i for i in g_src), itertools_tee_type)
         ]
         for in_obj, e_type in test_objects:
-            bbox, iterator = gj2ascii.core._bbox_from_arbitrary_iterator(in_obj)
+            bbox, iterator = gj2ascii.core.min_bbox(in_obj, return_iter=True)
             assert bbox == expected.bounds, \
                 "Bounds don't match: %s != %s" % (bbox, expected.bounds)
             assert isinstance(iterator, e_type), "Output iterator is %s" % iterator
