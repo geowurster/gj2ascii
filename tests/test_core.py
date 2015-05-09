@@ -20,8 +20,8 @@ from . import POINT_FILE
 from . import EXPECTED_POLYGON_20_WIDE
 
 
+# compare_ascii() is a function that is defined within the unittests and only used for testing
 def test_compare_ascii():
-    # compare_ascii() is a function that is defined within the unittests and only used for testing
     block = """
     line1
     line2
@@ -73,11 +73,13 @@ class TestRender(unittest.TestCase):
             given = gj2ascii.render(src, 15, bbox=src.bounds)
             computed = gj2ascii.render([i for i in src], 15)
             fio_collection = gj2ascii.render(src, 15)
-            # Passing in a generator and not specifying x/y min/max requires the features to be iterated over twice
-            # which is a problem because generators cannot be reset.  A backup of the generator should be created
-            # automatically and iterated over the second time.
+            # Passing in a generator and not specifying x/y min/max requires the features to
+            # be iterated over twice which is a problem because generators cannot be reset.
+            # A backup of the generator should be created automatically and iterated over the
+            # second time.
             generator_output = gj2ascii.render((f for f in src), 15)
-        for pair in itertools.combinations([given, computed, fio_collection, generator_output], 2):
+        for pair in itertools.combinations(
+                [given, computed, fio_collection, generator_output], 2):
             self.assertEqual(*pair)
 
     def test_with_fio(self):
@@ -127,28 +129,44 @@ class TestGeometryExtractor(unittest.TestCase):
             next(gj2ascii.core._geometry_extractor([{'type': None}]))
 
     def test_single_object(self):
-        self.assertDictEqual(self.geometry, next(gj2ascii.core._geometry_extractor(self.geometry)))
-        self.assertDictEqual(self.feature['geometry'], next(gj2ascii.core._geometry_extractor(self.feature)))
         self.assertDictEqual(
-            self.gi_feature.__geo_interface__['geometry'], next(gj2ascii.core._geometry_extractor(self.gi_feature)))
+            self.geometry, next(gj2ascii.core._geometry_extractor(self.geometry)))
         self.assertDictEqual(
-            self.gi_geometry.__geo_interface__, next(gj2ascii.core._geometry_extractor(self.gi_geometry)))
+            self.feature['geometry'], next(gj2ascii.core._geometry_extractor(self.feature)))
+        self.assertDictEqual(
+            self.gi_feature.__geo_interface__['geometry'],
+            next(gj2ascii.core._geometry_extractor(self.gi_feature)))
+        self.assertDictEqual(
+            self.gi_geometry.__geo_interface__,
+            next(gj2ascii.core._geometry_extractor(self.gi_geometry)))
 
     def test_multiple_homogeneous(self):
-        for item in gj2ascii.core._geometry_extractor((self.geometry, self.geometry, self.geometry)):
+
+        for item in gj2ascii.core._geometry_extractor(
+                (self.geometry, self.geometry, self.geometry)):
             self.assertDictEqual(item, self.geometry)
-        for item in gj2ascii.core._geometry_extractor((self.feature, self.feature, self.feature)):
+
+        for item in gj2ascii.core._geometry_extractor(
+                (self.feature, self.feature, self.feature)):
             self.assertDictEqual(item, self.feature['geometry'])
-        for item in gj2ascii.core._geometry_extractor((self.gi_geometry, self.gi_geometry, self.gi_geometry)):
+
+        for item in gj2ascii.core._geometry_extractor(
+                (self.gi_geometry, self.gi_geometry, self.gi_geometry)):
             self.assertDictEqual(item, self.gi_geometry.__geo_interface__)
-        for item in gj2ascii.core._geometry_extractor((self.gi_feature, self.gi_feature, self.gi_feature)):
+
+        for item in gj2ascii.core._geometry_extractor(
+                (self.gi_feature, self.gi_feature, self.gi_feature)):
             self.assertDictEqual(item, self.gi_feature.__geo_interface__['geometry'])
 
     def test_multiple_heterogeneous(self):
         input_objects = (self.geometry, self.feature, self.gi_feature, self.gi_geometry)
-        expected = (self.geometry, self.feature['geometry'], self.gi_feature.__geo_interface__['geometry'],
-                    self.gi_geometry.__geo_interface__)
-        for expected, actual in zip(expected, gj2ascii.core._geometry_extractor(input_objects)):
+        expected = (
+            self.geometry, self.feature['geometry'],
+            self.gi_feature.__geo_interface__['geometry'],
+            self.gi_geometry.__geo_interface__
+        )
+        for expected, actual in zip(
+                expected, gj2ascii.core._geometry_extractor(input_objects)):
             self.assertDictEqual(expected, actual)
 
 
@@ -168,7 +186,8 @@ class TestStack(unittest.TestCase):
                                    ['.', '+', '*', '.', '.'],
                                    ['*', '*', '+', '+', '+']])
 
-        self.assertEqual(gj2ascii.stack([l1, l2], fill='.').strip(os.linesep), eo.strip(os.linesep))
+        self.assertEqual(gj2ascii.stack(
+            [l1, l2], fill='.').strip(os.linesep), eo.strip(os.linesep))
 
     def test_exceptions(self):
         # Bad fill value
@@ -190,13 +209,22 @@ class TestStack(unittest.TestCase):
 class TestArray2Ascii2Array(unittest.TestCase):
 
     def setUp(self):
-        self.ascii = '* * * * *' + os.linesep + '  *   *  ' + os.linesep + '* * * * *'
-        self.array = [['*', '*', '*', '*', '*'], [' ', '*', ' ', '*', ' '], ['*', '*', '*', '*', '*']]
+        self.ascii = (
+            '* * * * *' + os.linesep +
+            '  *   *  ' + os.linesep +
+            '* * * * *'
+        )
+        self.array = [
+            ['*', '*', '*', '*', '*'],
+            [' ', '*', ' ', '*', ' '],
+            ['*', '*', '*', '*', '*']
+        ]
         self.np_array = np.array(self.array)
 
     def test_ascii2array(self):
         self.assertEqual(self.array, gj2ascii.ascii2array(self.ascii))
-        self.assertTrue(np.array_equal(self.np_array, np.array(gj2ascii.ascii2array(self.ascii))))
+        self.assertTrue(
+            np.array_equal(self.np_array, np.array(gj2ascii.ascii2array(self.ascii))))
 
     def test_array2ascii(self):
         self.assertEqual(self.ascii, gj2ascii.array2ascii(self.array))
@@ -229,7 +257,8 @@ class TestStyle(unittest.TestCase):
                 o_row.append(color + char + ' ' + gj2ascii.core._ANSI_RESET)
             expected.append(''.join(o_row))
         expected = os.linesep.join(expected)
-        self.assertEqual(expected, gj2ascii.style(gj2ascii.array2ascii(array), stylemap=colormap))
+        self.assertEqual(
+            expected, gj2ascii.style(gj2ascii.array2ascii(array), stylemap=colormap))
 
 
 def test_paginate():
@@ -249,13 +278,17 @@ def test_paginate():
 
 def test_bbox_from_arbitrary_iterator():
 
-    # Python 2 doesn't give direct access to an object that can be used to check if an object is an instance of tee
+    # Python 2 doesn't give direct access to an object that can be used to check if an object
+    # is an instance of tee
     pair = itertools.tee(range(10))
     itertools_tee_type = pair[1].__class__
 
-    with fio.open(POLY_FILE) as c_src, fio.open(POLY_FILE) as l_src, fio.open(POLY_FILE) as g_src,\
+    with fio.open(POLY_FILE) as c_src, \
+            fio.open(POLY_FILE) as l_src, \
+            fio.open(POLY_FILE) as g_src,\
             fio.open(POLY_FILE) as expected:
-        # Tuple element 1 is an iterable object to test and element 2 is the expected type of the output iterator
+        # Tuple element 1 is an iterable object to test and element 2 is the expected type of
+        # the output iterator
         test_objects = [
             (c_src, fio.Collection),
             ([i for i in l_src], list),
@@ -263,14 +296,18 @@ def test_bbox_from_arbitrary_iterator():
         ]
         for in_obj, e_type in test_objects:
             bbox, iterator = gj2ascii.core._bbox_from_arbitrary_iterator(in_obj)
-            assert bbox == expected.bounds, "Bounds don't match: %s != %s" % (bbox, expected.bounds)
+            assert bbox == expected.bounds, \
+                "Bounds don't match: %s != %s" % (bbox, expected.bounds)
             assert isinstance(iterator, e_type), "Output iterator is %s" % iterator
             for e, a in zip(expected, iterator):
                 assert e['id'] == a['id'], "%s != %s" % (e['id'], a['id'])
 
 
 def test_render_multiple():
-    with fio.open(POLY_FILE) as poly, fio.open(LINE_FILE) as lines, fio.open(POINT_FILE) as points:
+    with fio.open(POLY_FILE) as poly, \
+            fio.open(LINE_FILE) as lines, \
+            fio.open(POINT_FILE) as points:
+
         coords = list(poly.bounds) + list(lines.bounds) + list(points.bounds)
         bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
 
@@ -287,26 +324,32 @@ def test_render_multiple():
 
 
 def test_style_multiple():
-    with fio.open(POLY_FILE) as poly, fio.open(LINE_FILE) as lines, fio.open(POINT_FILE) as points:
+    with fio.open(POLY_FILE) as poly, \
+            fio.open(LINE_FILE) as lines, \
+            fio.open(POINT_FILE) as points:
         coords = list(poly.bounds) + list(lines.bounds) + list(points.bounds)
         bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
 
         width = 10
         lyr_color_pairs = [(poly, 'black'), (lines, 'blue'), (points, 'red')]
         lyr_char_pairs = [(l, gj2ascii.DEFAULT_COLOR_CHAR[c]) for l, c in lyr_color_pairs]
-        actual = gj2ascii.style_multiple(lyr_color_pairs, fill='yellow', width=width, bbox=bbox)
+        actual = gj2ascii.style_multiple(
+            lyr_color_pairs, fill='yellow', width=width, bbox=bbox)
 
         colormap = {gj2ascii.DEFAULT_COLOR_CHAR[c]: c for l, c in lyr_color_pairs}
         colormap['3'] = 'yellow'
 
         expected = gj2ascii.style(
-            gj2ascii.render_multiple(lyr_char_pairs, width=width, fill='3', bbox=bbox), stylemap=colormap)
+            gj2ascii.render_multiple(
+                lyr_char_pairs, width=width, fill='3', bbox=bbox), stylemap=colormap)
 
         assert actual == expected
 
 
 # def test_style_multiple_transparent_fill():
-#     with fio.open(POLY_FILE) as poly, fio.open(LINE_FILE) as lines, fio.open(POINT_FILE) as points:
+#     with fio.open(POLY_FILE) as poly, \
+#             fio.open(LINE_FILE) as lines, \
+#             fio.open(POINT_FILE) as points:
 #         coords = list(poly.bounds) + list(lines.bounds) + list(points.bounds)
 #         bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
 #
@@ -318,6 +361,7 @@ def test_style_multiple():
 #         colormap = {gj2ascii.DEFAULT_COLOR_CHAR[c]: c for l, c in lyr_color_pairs}
 #
 #         expected = gj2ascii.style(
-#             gj2ascii.render_multiple(lyr_char_pairs, width=width, bbox=bbox), stylemap=colormap)
+#             gj2ascii.render_multiple(
+#                 lyr_char_pairs, width=width, bbox=bbox), stylemap=colormap)
 #
 #         assert actual.strip() == expected.strip()

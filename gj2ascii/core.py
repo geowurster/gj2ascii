@@ -24,15 +24,16 @@ from shapely.geometry import mapping
 __all__ = [
     'render', 'stack', 'style', 'render_multiple', 'style_multiple', 'paginate', 'dict2table',
     'ascii2array', 'array2ascii',
-    'DEFAULT_WIDTH', 'DEFAULT_FILL', 'DEFAULT_CHAR', 'DEFAULT_CHAR_RAMP', 'DEFAULT_CHAR_COLOR', 'DEFAULT_COLOR_CHAR',
-    'ANSI_COLORMAP',
+    'DEFAULT_WIDTH', 'DEFAULT_FILL', 'DEFAULT_CHAR', 'DEFAULT_CHAR_RAMP', 'DEFAULT_CHAR_COLOR',
+    'DEFAULT_COLOR_CHAR', 'ANSI_COLORMAP',
 ]
 
 
 DEFAULT_FILL = ' '
 DEFAULT_CHAR = '+'
 DEFAULT_WIDTH = 40
-DEFAULT_CHAR_RAMP = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '#', '@', '0', '=', '-', '%', '$']
+DEFAULT_CHAR_RAMP = [
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '#', '@', '0', '=', '-', '%', '$']
 _ANSI_RESET = '\033[0m'
 ANSI_COLORMAP = {
     'black': '\x1b[30m\x1b[40m',
@@ -101,7 +102,8 @@ def dict2table(dictionary):
     prop_width = max([len(e) for e in dictionary.keys()])
     value_width = max([len(e) for e in dictionary.values()])
 
-    # Add 2 to the prop/value width to account for the single space padding around the properties and values
+    # Add 2 to the prop/value width to account for the single space padding around the
+    # properties and values
     # +----------+-------+
     # | Property | Value |
     #  ^        ^ ^     ^
@@ -153,8 +155,9 @@ def _geometry_extractor(ftrz):
         elif 'coordinates' in obj:
             yield obj
         else:
-            raise TypeError("An input object isn't a feature, geometry, or object supporting __geo_interface__: %s"
-                            % obj)
+            raise TypeError(
+                "An input object isn't a feature, geometry, or object supporting "
+                "__geo_interface__: %s" % obj)
 
 
 def ascii2array(ascii):
@@ -300,7 +303,8 @@ def stack(rendered_items, fill=DEFAULT_FILL):
     return array2ascii(output_array)
 
 
-def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, char=DEFAULT_CHAR, all_touched=False, bbox=None):
+def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, char=DEFAULT_CHAR,
+           all_touched=False, bbox=None):
 
     """
     Convert GeoJSON features, geometries, or objects supporting `__geo_interface__`
@@ -386,10 +390,10 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, char=DEFAULT_CHAR, all_
     if width <= 0:
         raise ValueError("Invalid width `%s' - must be > 0" % width)
 
-    # If the input is a generator and the min/max values were not supplied we have to compute them from the
-    # features, but we need them again later and generators cannot be reset.  This potentially creates a large
-    # in-memory object so if processing an entire layer it is best to explicitly define min/max, especially
-    # because its also faster.
+    # If the input is a generator and the min/max values were not supplied we have to compute
+    # them from the features, but we need them again later and generators cannot be reset.
+    # This potentially creates a large in-memory object so if processing an entire layer it is
+    # best to explicitly define min/max, especially because its also faster.
     if bbox:
         x_min, y_min, x_max, y_max = bbox
     else:
@@ -550,8 +554,9 @@ def render_multiple(ftr_char_pairs, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, **kw
         All input layers, features, or geometries rendered as ASCII.
     """
 
-    # Render is intended to be used as render(ftrz, width) but if it is expected to only be supplied
-    # as a kwarg it might create some confusion.  If the user supplies a value use that instead.
+    # Render is intended to be used as render(ftrz, width) but if it is expected to only be
+    # supplied as a kwarg it might create some confusion.  If the user supplies a value use
+    # that instead.
     width = kwargs.pop('width', width)
 
     if 'bbox' in kwargs:
@@ -569,7 +574,8 @@ def render_multiple(ftr_char_pairs, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, **kw
 
     rendered_layers = []
     for ftrz, char in iter_pairs:
-        rendered_layers.append(render(ftrz, width=width, char=char, bbox=bbox, fill=' ', **kwargs))
+        rendered_layers.append(
+            render(ftrz, width=width, char=char, bbox=bbox, fill=' ', **kwargs))
 
     return stack(rendered_layers, fill=fill)
 
@@ -650,7 +656,8 @@ def style_multiple(ftr_style_pairs, width=DEFAULT_WIDTH, fill=None, **kwargs):
         ftr_char_pairs.append((ftrs, str(idx)))
         stylemap[str(idx)] = styl
 
-    return style(render_multiple(ftr_char_pairs, width=width, fill=fill_char, **kwargs), stylemap)
+    return style(
+        render_multiple(ftr_char_pairs, width=width, fill=fill_char, **kwargs), stylemap)
 
 
 def _bbox_from_arbitrary_iterator(input_iter):
@@ -683,7 +690,8 @@ def _bbox_from_arbitrary_iterator(input_iter):
             coord_iter = input_iter
             output_iterator = input_iter
 
-        coords = list(itertools.chain(*[asShape(g).bounds for g in _geometry_extractor(coord_iter)]))
+        coords = list(
+            itertools.chain(*[asShape(g).bounds for g in _geometry_extractor(coord_iter)]))
         bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
 
     return bbox, output_iterator

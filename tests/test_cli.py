@@ -61,21 +61,28 @@ class TestCli(unittest.TestCase):
     def test_bad_fill_value(self):
         result = self.runner.invoke(cli.main, ['-c toolong', POLY_FILE])
         self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.startswith('Usage:') and
-                        'Error:' in result.output and 'must be a single character' in result.output)
+        self.assertTrue(
+            result.output.startswith('Usage:') and 'Error:' in result.output and
+            'must be a single character' in result.output)
 
     def test_bad_rasterize_value(self):
         result = self.runner.invoke(cli.main, ['-f toolong', POLY_FILE])
         self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.startswith('Usage:') and
-                        'Error:' in result.output and 'must be a single character' in result.output)
+        self.assertTrue(
+            result.output.startswith('Usage:') and 'Error:' in result.output and
+            'must be a single character' in result.output)
 
     def test_different_width(self):
         fill = '+'
         value = '.'
         width = 31
-        result = self.runner.invoke(cli.main,
-                                    ['--width', width, POLY_FILE, '--fill', fill, '--char', value, '--no-prompt'])
+        result = self.runner.invoke(cli.main, [
+            '--width', width,
+            POLY_FILE,
+            '--fill', fill,
+            '--char', value,
+            '--no-prompt'
+        ])
         self.assertEqual(result.exit_code, 0)
         for line in result.output.rstrip(os.linesep).splitlines():
             if line.startswith((fill, value)):
@@ -89,7 +96,8 @@ class TestCli(unittest.TestCase):
             '--iterate', '--no-prompt'
         ])
         self.assertEqual(result.exit_code, 0)
-        self.assertTrue(compare_ascii(result.output.strip(), EXPECTED_ALL_PROPERTIES_OUTPUT.strip()))
+        self.assertTrue(
+            compare_ascii(result.output.strip(), EXPECTED_ALL_PROPERTIES_OUTPUT.strip()))
 
     def test_paginate_with_two_properties(self):
         result = self.runner.invoke(cli.main, [
@@ -100,7 +108,8 @@ class TestCli(unittest.TestCase):
             '--iterate', '--no-prompt'
         ])
         self.assertEqual(result.exit_code, 0)
-        self.assertTrue(compare_ascii(result.output.strip(), EXPECTED_TWO_PROPERTIES_OUTPUT.strip()))
+        self.assertTrue(compare_ascii(
+            result.output.strip(), EXPECTED_TWO_PROPERTIES_OUTPUT.strip()))
 
     def test_iterate_wrong_arg_count(self):
         result = self.runner.invoke(cli.main, [
@@ -110,7 +119,8 @@ class TestCli(unittest.TestCase):
             '--char', '2'
         ])
         self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.startswith('Error:') and 'arg' in result.output and 'layer' in result.output)
+        self.assertTrue(result.output.startswith('Error:') and 'arg' in result.output and
+                        'layer' in result.output)
 
     def test_iterate_bad_property(self):
         result = self.runner.invoke(cli.main, [
@@ -136,7 +146,8 @@ class TestCli(unittest.TestCase):
             print(result.output)
             self.assertEqual(result.exit_code, 0)
             self.assertEqual(result.output, '')
-            self.assertTrue(compare_ascii(f.read().strip(), EXPECTED_TWO_PROPERTIES_OUTPUT.strip()))
+            self.assertTrue(
+                compare_ascii(f.read().strip(), EXPECTED_TWO_PROPERTIES_OUTPUT.strip()))
 
     def test_styled_write_to_file(self):
         with fio.open(SINGLE_FEATURE_WV_FILE) as src:
@@ -174,8 +185,9 @@ class TestCli(unittest.TestCase):
             '--char', '0'  # 2 layers but 3 values
         ])
         self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.startswith('Error:') and
-                        '--char' in result.output and 'number' in result.output and 'equal' in result.output)
+        self.assertTrue(
+            result.output.startswith('Error:') and '--char' in result.output and 'number' in
+            result.output and 'equal' in result.output)
 
     def test_render_one_layer_too_many_args(self):
         result = self.runner.invoke(cli.main, [
@@ -184,7 +196,8 @@ class TestCli(unittest.TestCase):
             '--char', '8'
         ])
         self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.startswith('Error:') and 'number' in result.output and '--char' in result.output)
+        self.assertTrue(result.output.startswith('Error:') and 'number' in result.output and
+                        '--char' in result.output)
 
     def test_bbox(self):
         result_with_file = self.runner.invoke(cli.main, [
@@ -226,11 +239,13 @@ class TestCli(unittest.TestCase):
         rendered_layers = []
         for layer, char in zip(('polygons', 'lines'), ('0', '1')):
             with fio.open(MULTILAYER_FILE, layer=layer) as src:
-                rendered_layers.append(gj2ascii.render(src, width=10, fill=' ', char=char, bbox=bbox))
+                rendered_layers.append(
+                    gj2ascii.render(src, width=10, fill=' ', char=char, bbox=bbox))
         expected = gj2ascii.stack(rendered_layers)
 
+        # Explicitly define since layers are not consistently listed in order
         result = self.runner.invoke(cli.main, [
-            MULTILAYER_FILE + ',polygons,lines',  # Explicitly define since layers are not consistently listed in order
+            MULTILAYER_FILE + ',polygons,lines',
             '--width', '10'
         ])
         self.assertEqual(result.exit_code, 0)
@@ -259,7 +274,8 @@ class TestCli(unittest.TestCase):
         with fio.open(POLY_FILE) as poly, fio.open(LINE_FILE) as line:
             coords = list(poly.bounds) + list(line.bounds)
             bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
-            expected = gj2ascii.render_multiple([(poly, char), (line, char)], width=width, fill=fill, bbox=bbox)
+            expected = gj2ascii.render_multiple(
+                [(poly, char), (line, char)], width=width, fill=fill, bbox=bbox)
             result = self.runner.invoke(cli.main, [
                 POLY_FILE, LINE_FILE,
                 '--width', width,
@@ -279,7 +295,9 @@ class TestCallbacks(unittest.TestCase):
             ('a', 'b'): [('a', None), ('b', None)],
             'black': [(gj2ascii.DEFAULT_COLOR_CHAR['black'], 'black')],
             ('black', 'blue'): [
-                (gj2ascii.DEFAULT_COLOR_CHAR['black'], 'black'), (gj2ascii.DEFAULT_COLOR_CHAR['blue'], 'blue')],
+                (gj2ascii.DEFAULT_COLOR_CHAR['black'], 'black'),
+                (gj2ascii.DEFAULT_COLOR_CHAR['blue'], 'blue')
+            ],
             ('+=red', '==yellow'): [('+', 'red'), ('=', 'yellow')],
             None: []
         }
@@ -317,7 +335,8 @@ class TestCallbacks(unittest.TestCase):
             self.assertEqual(None, cli._callback_bbox(None, None, None))
             self.assertEqual(src.bounds, cli._callback_bbox(None, None, bbox_file))
             self.assertEqual(
-                [round(i, 5) for i in src.bounds], [round(i, 5) for i in cli._callback_bbox(None, None, str_bounds)])
+                [round(i, 5) for i in src.bounds],
+                [round(i, 5) for i in cli._callback_bbox(None, None, str_bounds)])
             with self.assertRaises(click.BadParameter):
                 cli._callback_bbox(None, None, 1.23)
 

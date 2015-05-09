@@ -57,7 +57,7 @@ def _callback_char_and_fill(ctx, param, value):
     syntaxes but they cannot be mixed: +, blue, +=blue.
     """
 
-    invalid_color_error = "color `{color}' is invalid - must be one of the following: {valid_colors}".format(
+    invalid_color_error = "color `{color}' is invalid - must be: {valid_colors}".format(
         valid_colors=', '.join(list(gj2ascii.ANSI_COLORMAP.keys())), color='{color}')
 
     output = []
@@ -87,63 +87,6 @@ def _callback_char_and_fill(ctx, param, value):
             output[char] = val
 
     return output
-
-
-
-
-    #
-    # # Make sure all the input values use the same syntax
-    # def get_cmode(v):
-    #     if len(v) is 1:
-    #         return 'char'
-    #     elif v in gj2ascii.ANSI_COLORMAP.keys():
-    #         return 'color'
-    #     elif '=' in v and v != '=':
-    #         return 'c=c'
-    #     else:
-    #         return 'emoji'
-    #
-    # cc_pairs = []
-    # cmode = None
-    # for char_color in _value:
-    #     if cmode is None:
-    #         cmode = get_cmode(char_color)
-    #     # elif cmode != get_cmode(char_color):
-    #     #     raise click.BadParameter("invalid syntax - all instances of `--char` must use the same syntax.  For "
-    #     #                              "example, can't mix `--char +`, `--char :emoji:`, `--char blue` and `--char "
-    #     #                              "+=blue`.")
-    #     if cmode == 'c=c':
-    #         char, color = char_color.rpartition('=')[::2]
-    #         color = color.lower()
-    #         cc_pairs.append((char, color))
-    #     elif cmode == 'color':
-    #         cc_pairs.append(('lookup', char_color))
-    #     elif cmode == 'emoji':
-    #         cc_pairs.append(('emoji', char_color))
-    #     else:
-    #         cc_pairs.append((char_color, None))
-    #
-    # for char, color in cc_pairs:
-    #     if char == 'lookup':
-    #         try:
-    #             char = gj2ascii.DEFAULT_COLOR_CHAR[color]
-    #         except KeyError:  # pragma no cover
-    #             raise click.BadParameter(invalid_color_error.format(color=color))
-    #     elif char == 'emoji':
-    #         char = None
-    #         _idx = 0
-    #         while char is None or char in output:
-    #             _idx -= 1
-    #             char = gj2ascii.DEFAULT_CHAR_RAMP[_idx]
-    #
-    #     if color is not None and color not in gj2ascii.DEFAULT_COLOR_CHAR and cmode != 'emoji':  # pragma no cover
-    #         raise click.BadParameter(invalid_color_error.format(color=color))
-    #     elif len(char) is not 1:
-    #         raise click.BadParameter("value must be a single character, color, or character=color.")
-    #     else:
-    #         output.append((char, color))
-
-    # return output
 
 
 def _callback_properties(ctx, param, value):
@@ -204,7 +147,7 @@ def _callback_infile(ctx, param, value):
         Render all layers in a datasource
         $ gj2ascii sample-data/multilayer-polygon-line
 
-        # Render layer with name 'polygons' in a multilayer datasource
+        Render layer with name 'polygons' in a multilayer datasource
         $ gj2ascii sample-data/multilayer-polygon-line,polygons
 
         # Render two layers in a specific order in a multilayer datasource
@@ -256,31 +199,35 @@ def _callback_infile(ctx, param, value):
 )
 @click.option(
     '-w', '--width', type=click.INT, default=40,
-    help="Render geometry across N columns.  A single space is inserted between each column so the actual number of "
-         "columns is `width * 2`."
+    help="Render geometry across N columns.  A single space is inserted between each column "
+         "so the actual number of columns is `width * 2`."
 )
 @click.option(
     '-i', '--iterate', is_flag=True,
     help="Iterate over input features and display each individually."
 )
 @click.option(
-    '-f', '--fill', 'fill_map', metavar='CHAR', default=gj2ascii.DEFAULT_FILL, callback=_callback_char_and_fill,
+    '-f', '--fill', 'fill_map', metavar='CHAR', default=gj2ascii.DEFAULT_FILL,
+    callback=_callback_char_and_fill,
     help="Single character to use for pixels that are not covered by a geometry."
 )
 @click.option(
     '-c', '--char', 'char_map', metavar='CHAR', multiple=True, callback=_callback_char_and_fill,
-    help="Character to use for pixels that intersect a geometry.  Several syntaxes are supported: `-c +`, `-c blue`, "
-         "and `-c +=blue`.  The first will use + and no color, the second will select a character in the range 0 to 9 "
-         "and produce blue geometries, and the last will use + and produce blue geometry."
+    help="Character to use for pixels that intersect a geometry.  Several syntaxes are "
+         "supported: `-c +`, `-c blue`, and `-c +=blue`.  The first will use + and no color, "
+         "the second will select a character in the range 0 to 9 and produce blue geometries, "
+         "and the last will use + and produce blue geometry."
 )
 @click.option(
-    '--all-touched / --no-all-touched', '-at / -nat', multiple=True, default=False, callback=_callback_multiple_default,
-    help="Fill all pixels that intersect a geometry instead of those whose center intersects a geometry."
+    '--all-touched / --no-all-touched', '-at / -nat', multiple=True, default=False,
+    callback=_callback_multiple_default,
+    help="Fill all pixels that intersect a geometry instead of those whose center intersects "
+         "a geometry."
 )
 @click.option(
     '--crs', 'crs_def', metavar='DEF', multiple=True, callback=_callback_multiple_default,
-    help="Specify input CRS.  No transformations are performed but this will override the input CRS or assign a new "
-         "one."
+    help="Specify input CRS.  No transformations are performed but this will override the "
+         "input CRS or assign a new one."
 )
 @click.option(
     '--no-prompt', is_flag=True,
@@ -288,19 +235,21 @@ def _callback_infile(ctx, param, value):
 )
 @click.option(
     '-p', '--properties', metavar='NAME,NAME,...', callback=_callback_properties,
-    help="When iterating over features display the specified fields above each geometry.  Use `%all` for all."
+    help="When iterating over features display the specified fields above each geometry.  Use "
+         "`%all` for all."
 )
 @click.option(
     '--bbox', metavar="FILE or COORDS", callback=_callback_bbox,
-    help="Render data within bounding box.  Can be a path to a file or coords as 'x_min y_min x_max y_max'.  If not "
-         "supplied a minimum bounding box will be computed from all input layers, which can be expensive."
+    help="Render data within bounding box.  Can be a path to a file or coords as "
+         "'x_min y_min x_max y_max'.  If not supplied a minimum bounding box will be computed "
+         "from all input layers, which can be expensive."
 )
 @click.option(
     '--no-color', is_flag=True,
     help="Disable colors even if they are specify with `--char`."
 )
-def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_def, no_prompt, properties, bbox,
-         no_color):
+def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_def, no_prompt,
+         properties, bbox, no_color):
 
     """
     Render spatial vector data on the commandline as ASCII.
@@ -334,12 +283,15 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
     if iterate:
 
         if num_layers > 1:
-            raise click.ClickException("Can only iterate over a single layer.  Specify only one infile for "
-                                       "single-layer datasources and `INFILE,LAYERNAME` for multi-layer datasources.")
-
-        if len(infile) > 1 or num_layers > 1 or len(crs_def) > 1 or len(char_map) > 1 or len(all_touched) > 1:
             raise click.ClickException(
-                "Can only iterate over 1 layer - all layer-specific arguments can only be specified once each.")
+                "Can only iterate over a single layer.  Specify only one infile for "
+                "single-layer datasources and `INFILE,LAYERNAME` for multi-layer datasources.")
+
+        if len(infile) > 1 or num_layers > 1 or len(crs_def) > 1 \
+                or len(char_map) > 1 or len(all_touched) > 1:
+            raise click.ClickException(
+                "Can only iterate over 1 layer - all layer-specific arguments can only be "
+                "specified once each.")
 
         # User is writing to an output file.  Don't prompt for next feature every time
         if not no_prompt and hasattr(outfile, 'name') and outfile.name != '<stdout>':
@@ -359,20 +311,23 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
             layer = None
         in_ds = infile[-1][0]
         if in_ds == '-' and not no_prompt:
+
+            # This exception blocks a feature - see the content for more info.
             raise click.ClickException(
-                "Unfortunately features cannot yet be directly iterated over when reading from "
-                "stdin.  The simplest workaround is to use `--no-prompt` and pipe the output to "
-                "`more`:" + os.linesep * 2 +
-                "    $ cat data.geojson | gj2ascii - --iterate --no-prompt | more" + os.linesep * 2 +
-                "If having this feature directly supported please submit a ticket: %s"
-                % gj2ascii.__source__
+                "Unfortunately features cannot yet be directly iterated over when reading "
+                "from stdin.  The simplest workaround is to use:" +
+                os.linesep * 2 +
+                "    $ cat data.geojson | gj2ascii - --iterate --no-prompt | more" +
+                os.linesep * 2 +
+                "This issue has been logged: https://github.com/geowurster/gj2ascii/issues/25"
             )
         with fio.open(infile[-1][0], layer=layer, crs=crs_def[-1]) as src:
 
             if properties == '%all':
                 properties = src.schema['properties'].keys()
 
-            # Get the last specified parameter when possible in case there's a bug in the validation above.
+            # Get the last specified parameter when possible in case there's a bug in the
+            # validation above.
             kwargs = {
                 'width': width,
                 'char': [_c[0] for _c in char_map][-1],
@@ -389,7 +344,8 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
                 click.echo(feature, file=outfile)
                 if not no_prompt and click.prompt(
                         "Press enter for next feature or 'q + enter' to exit",
-                        default='', show_default=False, err=True) not in ('', os.linesep):  # pragma no cover
+                        default='', show_default=False, err=True) \
+                        not in ('', os.linesep):  # pragma no cover
                     raise click.Abort()
 
     # ==== Render all input layers ==== #
@@ -398,20 +354,23 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
         # if len(crs_def) not in (1, num_layers) or len(char_map) not in (0, 1, num_layers) \
         #     or len(all_touched) not in (1, num_layers)
 
-        # User didn't specify any characters/colors but the number of input layers exceeds the number
-        # of available colors.
+        # User didn't specify any characters/colors but the number of input layers exceeds
+        # the number of available colors.
         if not char_map:
             if num_layers > len(gj2ascii.ANSI_COLORMAP):
-                raise click.ClickException("can't auto-generate color ramp - number of input layers exceeds number of "
-                                           "colors.  Specify one `--char` per layer.")
+                raise click.ClickException(
+                    "can't auto-generate color ramp - number of input layers exceeds number "
+                    "of colors.  Specify one `--char` per layer.")
             elif num_layers is 1:
                 char_map = {gj2ascii.DEFAULT_CHAR: None}
             else:
-                char_map = OrderedDict(((str(_i), gj2ascii.DEFAULT_CHAR_COLOR[str(_i)]) for _i in range(num_layers)))
+                char_map = OrderedDict(((str(_i), gj2ascii.DEFAULT_CHAR_COLOR[str(_i)])
+                                        for _i in range(num_layers)))
         elif len(char_map) is not num_layers:
-            raise click.ClickException("Number of `--char` arguments must equal the number of layers being processed.  "
-                                       "Found %s characters and %s layers.  Characters and colors will be generated if "
-                                       "none are supplied." % (len(char_map), num_layers))
+            raise click.ClickException(
+                "Number of `--char` arguments must equal the number of layers being "
+                "processed.  Found %s characters and %s layers.  Characters and colors will "
+                "be generated if none are supplied." % (len(char_map), num_layers))
         if not char_map:
             char_map = {gj2ascii.DEFAULT_CHAR: None}
 
@@ -434,7 +393,8 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
                 with fio.open(ds, layer=layer, crs=crs) as src:
                     rendered_layers.append(
                         # Layers will be stacked, which requires fill to be set to a space
-                        gj2ascii.render(src, width=width, fill=' ', char=char, all_touched=at, bbox=bbox))
+                        gj2ascii.render(
+                            src, width=width, fill=' ', char=char, all_touched=at, bbox=bbox))
 
         stacked = gj2ascii.stack(rendered_layers, fill=fill_char)
         if no_color:
