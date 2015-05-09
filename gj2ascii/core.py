@@ -13,13 +13,15 @@ from types import GeneratorType
 from .pycompat import text_type
 
 import affine
-import emote
 import numpy as np
 import rasterio as rio
 from rasterio.features import rasterize
 from shapely.geometry import asShape
 from shapely.geometry import mapping
-
+try:
+    import emoji
+except ImportError:
+    emoji = None
 
 __all__ = [
     'render', 'stack', 'style', 'render_multiple', 'style_multiple', 'paginate', 'dict2table',
@@ -499,7 +501,7 @@ def style(rendered_ascii, stylemap):
                 if emoji_or_color in ANSI_COLORMAP:
                     o_row.append(ANSI_COLORMAP[emoji_or_color] + char + ' ' + _ANSI_RESET)
                 else:
-                    o_row.append(emote.lookup(emoji_or_color) + ' ')
+                    o_row.append(emoji.emojize(emoji_or_color + ' '))
             else:
                 o_row.append(char + ' ')
         output.append(''.join(o_row))

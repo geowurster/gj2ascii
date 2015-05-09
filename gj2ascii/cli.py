@@ -28,9 +28,10 @@ $ cat sample-data/polygons.geojson | gj2ascii - \
 """
 
 
-from collections import OrderedDict
+import itertools
 import os
-import sys
+import random
+import string
 
 import gj2ascii
 from .pycompat import zip_longest
@@ -38,6 +39,10 @@ from .pycompat import string_types
 
 import click
 import fiona as fio
+try:
+    import emoji
+except ImportError:
+    emoji = None
 
 
 def _build_colormap(c_map, f_map):
@@ -72,15 +77,28 @@ def _cb_char_and_fill(ctx, param, value):
             output.append((val, None))
         elif '=' in val:
             output.append(val.rsplit('=', 1))
+        elif len(val) >= 3 and val.startswith(':') and val.endswith(':'):
+            output.append('EMOJI-' + val)
+            if emoji is None:
+                raise click.BadParameter('detect an emoji but could not import the emoji '
+                                         'library.  Please `pip install emoji`.')
         else:
             try:
                 char = gj2ascii.DEFAULT_COLOR_CHAR[val]
             except KeyError:
                 raise click.BadParameter(
-                    "must be a single character, color, or emoji, not: `{val}'.".format(
+                    "must be a single character, color, or :emoji:, not: `{val}'.".format(
                         val=val)
                 )
             output.append((char, val))
+    all_chars = list(itertools.chain(*output))[0::2]
+    for idx, pair in enumerate(output):
+        if isinstance(pair, string_types) and pair.startswith('EMOJI'):
+            val = pair.replace('EMOJI-', '')
+            char = random.choice(string.ascii_letters)
+            while char in all_chars:
+                char = random.choice(string.ascii_letters)
+            output[idx] = (char, val)
 
     return output
 
