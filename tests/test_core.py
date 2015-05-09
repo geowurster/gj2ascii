@@ -323,27 +323,32 @@ def test_render_multiple():
         assert compare_ascii(actual.strip(), expected.strip())
 
 
-def test_style_multiple():
-    with fio.open(POLY_FILE) as poly, \
-            fio.open(LINE_FILE) as lines, \
-            fio.open(POINT_FILE) as points:
-        coords = list(poly.bounds) + list(lines.bounds) + list(points.bounds)
-        bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
-
-        width = 10
-        lyr_color_pairs = [(poly, 'black'), (lines, 'blue'), (points, 'red')]
-        lyr_char_pairs = [(l, gj2ascii.DEFAULT_COLOR_CHAR[c]) for l, c in lyr_color_pairs]
-        actual = gj2ascii.style_multiple(
-            lyr_color_pairs, fill='yellow', width=width, bbox=bbox)
-
-        colormap = {gj2ascii.DEFAULT_COLOR_CHAR[c]: c for l, c in lyr_color_pairs}
-        colormap['3'] = 'yellow'
-
-        expected = gj2ascii.style(
-            gj2ascii.render_multiple(
-                lyr_char_pairs, width=width, fill='3', bbox=bbox), stylemap=colormap)
-
-        assert actual == expected
+# def test_style_multiple():
+#     with fio.open(POLY_FILE) as poly, \
+#             fio.open(LINE_FILE) as lines, \
+#             fio.open(POINT_FILE) as points:
+#         coords = list(poly.bounds) + list(lines.bounds) + list(points.bounds)
+#         bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
+#         width = 10
+#         lyr_color_pairs = [(poly, 'black'), (lines, 'blue'), (points, 'red')]
+#         lyr_char_pairs = [(l, gj2ascii.DEFAULT_COLOR_CHAR[c]) for l, c in lyr_color_pairs]
+#         actual = gj2ascii.style_multiple(
+#             lyr_color_pairs, fill='yellow', width=width, bbox=bbox)
+#
+#         colormap = {
+#             ''
+#         }
+#         colormap = {gj2ascii.DEFAULT_COLOR_CHAR[c]: c for l, c in lyr_color_pairs}
+#         colormap['3'] = 'yellow'
+#         expected = gj2ascii.style(
+#             gj2ascii.render_multiple(
+#                 lyr_char_pairs, width=width, fill='3', bbox=bbox), stylemap=colormap)
+#         print("=======")
+#         print(expected)
+#         print("=======")
+#         print(actual)
+#         print("=======")
+#         assert expected == actual
 
 
 # def test_style_multiple_transparent_fill():

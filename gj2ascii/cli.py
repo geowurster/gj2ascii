@@ -30,6 +30,7 @@ $ cat sample-data/polygons.geojson | gj2ascii - \
 
 from collections import OrderedDict
 import os
+import sys
 
 import gj2ascii
 from .pycompat import zip_longest
@@ -45,25 +46,19 @@ def _build_colormap(c_map, f_map):
     Combine a character and fill map into a single colormap
     """
 
-    return {k: v for k, v in dict(c_map.items(), **f_map).items() if v is not None}
+    return {k: v for k, v in c_map + f_map if v is not None}
 
 
 def _cb_char_and_fill(ctx, param, value):
 
     """
-    This whole thing works but needs to be cleaned up.
-
     Click callback to validate --fill and --char.  --char supports multiple
     syntaxes but they cannot be mixed: +, blue, +=blue.
+
+    This whole thing works but needs to be cleaned up.
     """
 
-    invalid_color_error = "color `{color}' is invalid - must be: {valid_colors}".format(
-        valid_colors=', '.join(list(gj2ascii.ANSI_COLORMAP.keys())), color='{color}')
-
-    output = []
-
     # If the user didn't supply anything then value=None
-    input_value = value
     if value is None:
         value = ()
     elif isinstance(value, string_types):
@@ -71,20 +66,21 @@ def _cb_char_and_fill(ctx, param, value):
     else:
         value = value
 
-    output = OrderedDict()
+    output = []
     for val in value:
         if len(val) is 1:
-            output[val] = None
+            output.append((val, None))
         elif '=' in val:
-            v, c = val.split('=')
-            output[v] = c
+            output.append(val.rsplit('=', 1))
         else:
-            char = None
-            idx = 0
-            while char is None or char in output:
-                idx -= 1
-                char = gj2ascii.DEFAULT_CHAR_RAMP[idx]
-            output[char] = val
+            try:
+                char = gj2ascii.DEFAULT_COLOR_CHAR[val]
+            except KeyError:
+                raise click.BadParameter(
+                    "must be a single character, color, or emoji, not: `{val}'.".format(
+                        val=val)
+                )
+            output.append((char, val))
 
     return output
 
@@ -121,10 +117,11 @@ def _cb_bbox(ctx, param, value):
     Validate ``--bbox`` by making sure it doesn't form a 'bow-tie'.
     """
 
-    if value is not None:
+    if value:
         x_min, y_min, x_max, y_max = value
         if (x_min > x_max) or (y_min > y_max):
-            raise click.BadParameter('self-intersection: {bbox}'.format(bbox=' '.join(value)))
+            raise click.BadParameter(
+                'self-intersection: {bbox}'.format(bbox=value))
 
     return value
 
@@ -285,11 +282,12 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
                 "specified once each.")
 
         # User is writing to an output file.  Don't prompt for next feature every time
+        # TODO: Don't just compare to '<stdout>' but sys.stdout.name throws an exception
         if not no_prompt and hasattr(outfile, 'name') and outfile.name != '<stdout>':
             no_prompt = True
 
         if not char_map:
-            char_map = {gj2ascii.DEFAULT_CHAR: None}
+            char_map = [(gj2ascii.DEFAULT_CHAR, None)]
 
         # The odd list slicing is due to infile looking something like this:
         # [
@@ -352,10 +350,10 @@ def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_d
                     "can't auto-generate color ramp - number of input layers exceeds number "
                     "of colors.  Specify one `--char` per layer.")
             elif num_layers is 1:
-                char_map = {gj2ascii.DEFAULT_CHAR: None}
+                char_map = [(gj2ascii.DEFAULT_CHAR, None)]
             else:
-                char_map = OrderedDict(((str(_i), gj2ascii.DEFAULT_CHAR_COLOR[str(_i)])
-                                        for _i in range(num_layers)))
+                char_map = [(str(_i), gj2ascii.DEFAULT_CHAR_COLOR[str(_i)])
+                            for _i in range(num_layers)]
         elif len(char_map) is not num_layers:
             raise click.ClickException(
                 "Number of `--char` arguments must equal the number of layers being "

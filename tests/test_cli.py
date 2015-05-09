@@ -3,7 +3,7 @@ Unittests for gj2ascii CLI
 """
 
 
-import itertools
+from collections import OrderedDict
 import os
 import tempfile
 import unittest
@@ -144,6 +144,7 @@ class TestCli(unittest.TestCase):
             ])
             f.seek(0)
             print(result.output)
+            print(result.exception)
             self.assertEqual(result.exit_code, 0)
             self.assertEqual(result.output, '')
             self.assertTrue(
@@ -293,10 +294,12 @@ class TestCallbacks(unittest.TestCase):
             None: []
         }
 
+        # The callback can return a list of tuples or a list of lists.  Force test to compare
+        # list to list.
         for inval, expected in testvals.items():
-            self.assertEqual(expected, cli._cb_char_and_fill(None, None, inval))
-        with self.assertRaises(click.BadParameter):
-            cli._cb_char_and_fill(None, None, ('+=red', '-'))
+            expected = [list(i) for i in expected]
+            actual = [list(i) for i in cli._cb_char_and_fill(None, None, inval)]
+            self.assertEqual(expected, actual)
         with self.assertRaises(click.BadParameter):
             cli._cb_char_and_fill(None, None, 'bad-color')
         with self.assertRaises(click.BadParameter):
@@ -322,23 +325,18 @@ class TestCallbacks(unittest.TestCase):
         bbox_file = 'sample-data/polygons.geojson'
 
         with fio.open(bbox_file) as src:
-            str_bounds = ' '.join([str(i) for i in src.bounds])
+
             self.assertEqual(None, cli._cb_bbox(None, None, None))
-            self.assertEqual(src.bounds, cli._cb_bbox(None, None, bbox_file))
-            self.assertEqual(
-                [round(i, 5) for i in src.bounds],
-                [round(i, 5) for i in cli._cb_bbox(None, None, str_bounds)])
-            with self.assertRaises(click.BadParameter):
-                cli._cb_bbox(None, None, 1.23)
+            self.assertEqual(src.bounds, cli._cb_bbox(None, None, src.bounds))
 
         # Bbox with invalid X values
         with self.assertRaises(click.BadParameter):
-            cli._cb_bbox(None, None, "2 0 1 0")
+            cli._cb_bbox(None, None, (2, 0, 1, 0,))
 
         # Bbox with invalid Y values
         with self.assertRaises(click.BadParameter):
-            cli._cb_bbox(None, None, "0 2 0 1")
+            cli._cb_bbox(None, None, (0, 2, 0, 1))
 
         # Bbox with invalid X and Y values
         with self.assertRaises(click.BadParameter):
-            cli._cb_bbox(None, None, "2 2 1 1")
+            cli._cb_bbox(None, None, (2, 2, 1, 1,))
