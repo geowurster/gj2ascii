@@ -205,12 +205,11 @@ def _cb_infile(ctx, param, value):
     help="Write to an output file instead of stdout."
 )
 @click.option(
-    '-w', '--width', type=click.INT, default=40,
-    help="Render geometry across N columns.  A single space is inserted between each column "
-         "so the actual number of columns is `width * 2`."
+    '-w', '--width', type=click.INT, default=gj2ascii.DEFAULT_WIDTH,
+    help="Render across N text columns.  Height is auto-computed."
 )
 @click.option(
-    '-i', '--iterate', is_flag=True,
+    '--iterate', is_flag=True,
     help="Iterate over input features and display each individually."
 )
 @click.option(
@@ -226,7 +225,7 @@ def _cb_infile(ctx, param, value):
          "and the last will use + and produce blue geometry."
 )
 @click.option(
-    '--all-touched / --no-all-touched', '-at / -nat', multiple=True, default=False,
+    '--all-touched', is_flag=True, multiple=True, default=False,
     callback=_cb_multiple_default,
     help="Fill all pixels that intersect a geometry instead of those whose center intersects "
          "a geometry."

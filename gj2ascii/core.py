@@ -7,6 +7,7 @@ from __future__ import division
 
 from collections import OrderedDict
 import itertools
+import math
 import os
 from types import GeneratorType
 
@@ -33,7 +34,7 @@ __all__ = [
 
 DEFAULT_FILL = ' '
 DEFAULT_CHAR = '+'
-DEFAULT_WIDTH = 40
+DEFAULT_WIDTH = 80
 DEFAULT_CHAR_RAMP = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '#', '@', '0', '=', '-', '%', '$']
 _ANSI_RESET = '\033[0m'
@@ -357,8 +358,7 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, char=DEFAULT_CHAR,
         `__geo_interface__`, or an iterable producing one of those types per
         iteration.
     width : int, optional
-        Number of columns in output ASCII.  A space is inserted between every
-        character so the actual output width is `width * 2`.
+        Render across N text columns.  Height is auto-computed.
     char : str or None, optional
         Single character to use for pixels touched by a geometry.
     fill : str or None, optional
@@ -382,6 +382,10 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, char=DEFAULT_CHAR,
         ASCII representation of input features or array.
     """
 
+    # User defines width as number of text columns but we need it as number of pixel
+    # columns.  One space is inserted between every pixel so divide by 2.
+    width = int(math.ceil(width / 2))
+
     # Values that aren't a string or 1 character wide cause rendering issues
     fill = str(fill)
     char = str(char)
@@ -399,7 +403,7 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, char=DEFAULT_CHAR,
     if bbox:
         x_min, y_min, x_max, y_max = bbox
     else:
-        _bbox, ftrz = _bbox_from_arbitrary_iterator(ftrz)
+        _bbox, ftrz = min_bbox(ftrz, return_iter=True)
         x_min, y_min, x_max, y_max = _bbox
 
     x_delta = x_max - x_min
@@ -568,7 +572,7 @@ def render_multiple(ftr_char_pairs, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, **kw
         coords = []
         iter_pairs = []
         for ftrz, char in ftr_char_pairs:
-            _bbox, _ftrz_copy = _bbox_from_arbitrary_iterator(ftrz)
+            _bbox, _ftrz_copy = min_bbox(ftrz, return_iter=True)
             coords.append(_bbox)
             iter_pairs.append((_ftrz_copy, char))
         coords = [_i for _i in itertools.chain(*coords)]
@@ -662,7 +666,7 @@ def style_multiple(ftr_style_pairs, width=DEFAULT_WIDTH, fill=None, **kwargs):
         render_multiple(ftr_char_pairs, width=width, fill=fill_char, **kwargs), stylemap)
 
 
-def _bbox_from_arbitrary_iterator(input_iter):
+def min_bbox(input_iter, return_iter=False):
 
     """
     Compute a bbox from an iterable object containing features, geometries, or
@@ -674,12 +678,18 @@ def _bbox_from_arbitrary_iterator(input_iter):
     ----------
     iterator : iterable object
         An iterable object returning one GeoJSON feature, or geometry, or
-        object supporting `__geo_interface` every iteration.
+        object supporting `__geo_interface__` every iteration.
+    return_iter : bool, optional
+        Primarily used by the internal API.  Instead of just returning the
+        ``bbox`, return (bbox, iter) where ``iter`` is a copy of the iterator
+        if its a generator, otherwise the input iterator is returned.
 
     Returns
     -------
     tuple
-        ((x_min, y_min, x_max, y_max), <iterable>
+        x_min, y_min, x_max, y_max
+    tuple
+        ((x_min, y_min, x_max, y_max), <iterable>)
     """
 
     if hasattr(input_iter, 'bounds'):
@@ -696,4 +706,7 @@ def _bbox_from_arbitrary_iterator(input_iter):
             itertools.chain(*[asShape(g).bounds for g in _geometry_extractor(coord_iter)]))
         bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
 
-    return bbox, output_iterator
+    if return_iter:
+        return bbox, output_iterator
+    else:
+        return bbox

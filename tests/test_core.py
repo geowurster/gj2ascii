@@ -17,7 +17,7 @@ import numpy as np
 from . import POLY_FILE
 from . import LINE_FILE
 from . import POINT_FILE
-from . import EXPECTED_POLYGON_20_WIDE
+from . import EXPECTED_POLYGON_40_WIDE
 
 
 # compare_ascii() is a function that is defined within the unittests and only used for testing
@@ -60,9 +60,9 @@ class TestDictTable(unittest.TestCase):
 class TestRender(unittest.TestCase):
 
     def test_exception(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             gj2ascii.render([], None, fill='asdf')
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             gj2ascii.render([], None, char='asdf')
         with self.assertRaises(ValueError):
             gj2ascii.render([], width=-1)
@@ -84,8 +84,8 @@ class TestRender(unittest.TestCase):
 
     def test_with_fio(self):
         with fio.open(POLY_FILE) as src:
-            r = gj2ascii.render(src, width=20, fill='.', char='+', bbox=src.bounds)
-            self.assertEqual(EXPECTED_POLYGON_20_WIDE.strip(), r.strip())
+            r = gj2ascii.render(src, width=40, fill='.', char='+', bbox=src.bounds)
+            self.assertEqual(EXPECTED_POLYGON_40_WIDE.strip(), r.strip())
 
 
 class TestGeometryExtractor(unittest.TestCase):
@@ -295,7 +295,7 @@ def test_bbox_from_arbitrary_iterator():
             ((i for i in g_src), itertools_tee_type)
         ]
         for in_obj, e_type in test_objects:
-            bbox, iterator = gj2ascii.core._bbox_from_arbitrary_iterator(in_obj)
+            bbox, iterator = gj2ascii.core.min_bbox(in_obj, return_iter=True)
             assert bbox == expected.bounds, \
                 "Bounds don't match: %s != %s" % (bbox, expected.bounds)
             assert isinstance(iterator, e_type), "Output iterator is %s" % iterator
@@ -311,7 +311,7 @@ def test_render_multiple():
         coords = list(poly.bounds) + list(lines.bounds) + list(points.bounds)
         bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
 
-        width = 10
+        width = 20
         lyr_char_pairs = [(poly, '+'), (lines, '-'), (points, '*')]
         actual = gj2ascii.render_multiple(lyr_char_pairs, width, fill='#')
 

@@ -20,8 +20,8 @@ from . import LINE_FILE
 from . import SINGLE_FEATURE_WV_FILE
 from . import EXPECTED_TWO_PROPERTIES_OUTPUT
 from . import EXPECTED_ALL_PROPERTIES_OUTPUT
-from . import EXPECTED_POLYGON_20_WIDE
-from . import EXPECTED_LINE_20_WIDE
+from . import EXPECTED_POLYGON_40_WIDE
+from . import EXPECTED_LINE_40_WIDE
 from . import MULTILAYER_FILE
 from . import EXPECTED_STACKED
 from . import EXPECTED_STACK_PERCENT_ALL
@@ -37,17 +37,17 @@ class TestCli(unittest.TestCase):
     def test_simple(self):
         result = self.runner.invoke(cli.main, [
             POLY_FILE,
-            '--width', '20',
+            '--width', '40',
             '--char', '+',
             '--fill', '.',
         ])
         self.assertEqual(result.exit_code, 0)
-        self.assertTrue(compare_ascii(result.output.strip(), EXPECTED_POLYGON_20_WIDE.strip()))
+        self.assertTrue(compare_ascii(result.output.strip(), EXPECTED_POLYGON_40_WIDE.strip()))
 
     def test_complex(self):
         result = self.runner.invoke(cli.main, [
             LINE_FILE,
-            '--width', '20',
+            '--width', '40',
             '--char', '+',
             '--fill', '.',
             '--no-prompt',
@@ -55,8 +55,13 @@ class TestCli(unittest.TestCase):
             '--iterate',
             '--crs', 'EPSG:26918'
         ])
+        print('----')
+        print(result.output)
+        print('----')
+        print(EXPECTED_LINE_40_WIDE)
+        print('----')
         self.assertEqual(result.exit_code, 0)
-        self.assertTrue(compare_ascii(result.output.strip(), EXPECTED_LINE_20_WIDE.strip()))
+        self.assertTrue(compare_ascii(result.output.strip(), EXPECTED_LINE_40_WIDE.strip()))
 
     def test_bad_fill_value(self):
         result = self.runner.invoke(cli.main, ['-c toolong', POLY_FILE])
@@ -75,7 +80,7 @@ class TestCli(unittest.TestCase):
     def test_different_width(self):
         fill = '+'
         value = '.'
-        width = 31
+        width = 62
         result = self.runner.invoke(cli.main, [
             '--width', width,
             POLY_FILE,
@@ -86,12 +91,12 @@ class TestCli(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         for line in result.output.rstrip(os.linesep).splitlines():
             if line.startswith((fill, value)):
-                self.assertEqual(len(line.rstrip(os.linesep).split()), width)
+                self.assertEqual(len(line.rstrip(os.linesep).split()), width / 2)
 
     def test_paginate_with_all_properties(self):
         result = self.runner.invoke(cli.main, [
             SINGLE_FEATURE_WV_FILE,
-            '--width', '10',
+            '--width', '20',
             '--properties', '%all',
             '--iterate', '--no-prompt'
         ])
@@ -102,7 +107,7 @@ class TestCli(unittest.TestCase):
     def test_paginate_with_two_properties(self):
         result = self.runner.invoke(cli.main, [
             SINGLE_FEATURE_WV_FILE,
-            '--width', '10',
+            '--width', '20',
             '--fill', '*',
             '--properties', 'NAME,ALAND',
             '--iterate', '--no-prompt'
@@ -135,7 +140,7 @@ class TestCli(unittest.TestCase):
         with tempfile.NamedTemporaryFile('r+') as f:
             result = self.runner.invoke(cli.main, [
                 SINGLE_FEATURE_WV_FILE,
-                '--width', '10',
+                '--width', '20',
                 '--properties', 'NAME,ALAND',
                 '--iterate',
                 '--fill', '*',
@@ -143,8 +148,6 @@ class TestCli(unittest.TestCase):
                 # --no-prompt should automatically happen in this case
             ])
             f.seek(0)
-            print(result.output)
-            print(result.exception)
             self.assertEqual(result.exit_code, 0)
             self.assertEqual(result.output, '')
             self.assertTrue(
@@ -152,11 +155,11 @@ class TestCli(unittest.TestCase):
 
     def test_styled_write_to_file(self):
         with fio.open(SINGLE_FEATURE_WV_FILE) as src:
-            expected = gj2ascii.render(src, width=10, char='1', fill='0')
+            expected = gj2ascii.render(src, width=20, char='1', fill='0')
         with tempfile.NamedTemporaryFile('r+') as f:
             result = self.runner.invoke(cli.main, [
                 SINGLE_FEATURE_WV_FILE,
-                '--width', '10',
+                '--width', '20',
                 '--properties', 'NAME,ALAND',
                 '--char', '1=red',
                 '--fill', '0=blue',
@@ -173,7 +176,7 @@ class TestCli(unittest.TestCase):
             '--char', '+',
             '--char', '8',
             '--fill', '.',
-            '--width', '20'
+            '--width', '40'
         ])
         self.assertEqual(result.exit_code, 0)
         self.assertTrue(compare_ascii(result.output.strip(), EXPECTED_STACKED.strip()))
@@ -204,7 +207,7 @@ class TestCli(unittest.TestCase):
         with fio.open(SMALL_AOI_POLY_LINE_FILE) as src:
             cmd = [
                 POLY_FILE,
-                '--width', '20',
+                '--width', '40',
                 '--char', '+',
                 '--bbox',
             ] + list(map(str, src.bounds))
@@ -232,13 +235,13 @@ class TestCli(unittest.TestCase):
         for layer, char in zip(('polygons', 'lines'), ('0', '1')):
             with fio.open(MULTILAYER_FILE, layer=layer) as src:
                 rendered_layers.append(
-                    gj2ascii.render(src, width=10, fill=' ', char=char, bbox=bbox))
+                    gj2ascii.render(src, width=20, fill=' ', char=char, bbox=bbox))
         expected = gj2ascii.stack(rendered_layers)
 
         # Explicitly define since layers are not consistently listed in order
         result = self.runner.invoke(cli.main, [
             MULTILAYER_FILE + ',polygons,lines',
-            '--width', '10'
+            '--width', '20'
         ])
         self.assertEqual(result.exit_code, 0)
         self.assertTrue(compare_ascii(expected.strip(), result.output.strip()))
@@ -260,7 +263,7 @@ class TestCli(unittest.TestCase):
         self.assertTrue(compare_ascii(result.output.strip(), expected.strip()))
 
     def test_same_char_twice(self):
-        width = 20
+        width = 40
         fill = '.'
         char = '+'
         with fio.open(POLY_FILE) as poly, fio.open(LINE_FILE) as line:
