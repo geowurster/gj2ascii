@@ -55,6 +55,11 @@ class TestCli(unittest.TestCase):
             '--iterate',
             '--crs', 'EPSG:26918'
         ])
+        print('----')
+        print(result.output)
+        print('----')
+        print(EXPECTED_LINE_40_WIDE)
+        print('----')
         self.assertEqual(result.exit_code, 0)
         self.assertTrue(compare_ascii(result.output.strip(), EXPECTED_LINE_40_WIDE.strip()))
 

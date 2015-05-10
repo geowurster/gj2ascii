@@ -209,7 +209,7 @@ def _cb_infile(ctx, param, value):
     help="Render across N text columns.  Height is auto-computed."
 )
 @click.option(
-    '-i', '--iterate', is_flag=True,
+    '--iterate', is_flag=True,
     help="Iterate over input features and display each individually."
 )
 @click.option(
@@ -225,7 +225,7 @@ def _cb_infile(ctx, param, value):
          "and the last will use + and produce blue geometry."
 )
 @click.option(
-    '--all-touched / --no-all-touched', '-at / -nat', multiple=True, default=False,
+    '--all-touched', is_flag=True, multiple=True, default=False,
     callback=_cb_multiple_default,
     help="Fill all pixels that intersect a geometry instead of those whose center intersects "
          "a geometry."
