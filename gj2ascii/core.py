@@ -26,7 +26,7 @@ except ImportError:  # pragma no cover
 
 __all__ = [
     'render', 'stack', 'style', 'render_multiple', 'style_multiple', 'paginate', 'dict2table',
-    'ascii2array', 'array2ascii',
+    'ascii2array', 'array2ascii', 'min_bbox',
     'DEFAULT_WIDTH', 'DEFAULT_FILL', 'DEFAULT_CHAR', 'DEFAULT_CHAR_RAMP', 'DEFAULT_CHAR_COLOR',
     'DEFAULT_COLOR_CHAR', 'ANSI_COLORMAP',
 ]
@@ -85,10 +85,13 @@ def dict2table(dictionary):
         | CBSAFP   |      None |
         +----------+-----------+
 
+
     Parameter
     ---------
     dictionary : dict
-        Keys are rendered in the first column adn vals in the right.
+        Keys are rendered in the first column left justified and values are
+        rendered in the second right justified.
+
 
     Returns
     -------
@@ -131,16 +134,19 @@ def _geometry_extractor(ftrz):
     A generator that yields GeoJSON geometry objects extracted from various
     data formats and containers.
 
+
     Parameters
     ----------
     ftrz : dict or iterator
         Can be a single GeoJSON feature, geometry, object with a `__geo_interface__`
         method, or an iterable producing one of those types per iteration.
 
+
     Yields
     ------
     dict
         A GeoJSON geometry.
+
 
     Raises
     ------
@@ -182,10 +188,12 @@ def ascii2array(ascii):
          [' ', '*', ' ', '*', ' '],
          ['*', '*', '*', '*', '*']]
 
+
     Parameters
     ---------
     ascii : str
         Rendered ASCII from `render()` or `stack()`.
+
 
     Returns
     -------
@@ -215,10 +223,12 @@ def array2ascii(arr):
           *   *
         * * * * *
 
+
     Parameters
     ----------
     arr : str
         An array with a structure similar to the output of `ascii2array()`.
+
 
     Returns
     -------
@@ -234,9 +244,9 @@ def stack(rendered_items, fill=DEFAULT_FILL):
     """
     Combine multiple overlapping renderings into a single rendered product.  All
     input renderings must have been rendered with the same width, bbox, and use
-    a single space for the fill value.  Pixels containing a single space are
-    considered transparent and overlapping geometries are merged with the painters
-    algorithm.
+    a single space for the fill value.  Overlapping geometries are merged with
+    the painters algorithm and pixels containing a single space are considered
+    transparent.  Use the `fill` parameter to specify an output fill character.
 
     It is important that all input layers be rendered with the same width and
     bbox to ensure that they actually represent the same spatial area.  It is
@@ -257,9 +267,14 @@ def stack(rendered_items, fill=DEFAULT_FILL):
 
         1       1
 
+        # Define a bounding box
+        bbox = (-10, -15, 10, 15)
+
         >>> import gj2ascii
-        >>> layer1 = gj2ascii.render(geom1, width=5, fill=' ', value='0')
-        >>> layer2 = gj2ascii.render(geom2, width=5, fill=' ', value='1')
+        >>> layer1 = gj2ascii.render(
+        ...     geom1, width=5, fill=' ', value='0', bbox=bbox)
+        >>> layer2 = gj2ascii.render(
+        ...     geom2, width=5, fill=' ', value='1', bbox=bbox)
         >>> layers = [layer1, layer2]
         >>> print(gj2ascii.stack(layers, fill='.'))
         1 0 0 0 1
@@ -271,11 +286,19 @@ def stack(rendered_items, fill=DEFAULT_FILL):
     rendered_items : iterable
         An iterable producing one rendered layer per iteration.  Layers must
         all have the same dimension and must have been rendered with an empty
-        space (' ') as the fill value.  Using the same `bbox` and `width` values
+        space ` ' as the fill value.  Using the same `bbox` and `width` values
         for `render()` when preparing input layers helps ensure layers have
         matching dimensions.
+
     fill : str, optional
         A new fill value for the rendered stack.  Must be a single character.
+
+
+    Raises
+    ------
+    ValueError
+        Fill value is too long or input ASCII has heterogeneous dimensions.
+
 
     Returns
     -------
@@ -310,8 +333,8 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, char=DEFAULT_CHAR,
            all_touched=False, bbox=None):
 
     """
-    Convert GeoJSON features, geometries, or objects supporting `__geo_interface__`
-    to their ASCII representation.
+    Render GeoJSON features, geometries, or objects supporting `__geo_interface__`
+    as ASCII.
 
     Render an entire layer:
 
@@ -357,24 +380,36 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, char=DEFAULT_CHAR,
         Can be a single GeoJSON feature, geometry, object supporting
         `__geo_interface__`, or an iterable producing one of those types per
         iteration.
+
     width : int, optional
         Render across N text columns.  Height is auto-computed.
+
     char : str or None, optional
-        Single character to use for pixels touched by a geometry.
+        Single character to use for pixels intersecting a geometry.
+
     fill : str or None, optional
         Single character to use for pixels that are not touched by a geometry.
+
     all_touched : bool, optional
         Fill every pixel the geometries touch instead of every pixel whose
-        center intersects the geometry.
+        center intersects the geometry.  See `rasterio.features.rasterize()`
+        for more information.
+
     bbox : tuple, optional
         A 4 element tuple consisting of x_min, y_min, x_max, y_max.  Used to
         zoom in on a particular area of interest or to ensure that independent
-        renderings can be stacked later.  If not supplied it is computed on the
+        renderings can be stacked.  If not supplied it is computed on the
         fly from all input objects.  If reading from a datasource with a large
         number of features it is advantageous to supply this parameter to avoid
         a potentially large in-memory object and expensive computation.  If not
-        supplied and the input object is a `fio.Collection()` instance the bbox
-        will be automatically computed from the `bounds` property.
+        supplied and the input object has a `bounds` property, that value will
+        be used.
+
+
+    Raises
+    ------
+    ValueError
+        A parameter has an invalid value.
 
     Returns
     -------
@@ -440,17 +475,22 @@ def paginate(ftrz, width=DEFAULT_WIDTH, properties=None, colormap=None, **kwargs
     attribute table formatting via the `properties` argument.  Primarily used
     by the CLI.
 
+
     Properties
     ----------
     ftrz : dict or iterator
         Anything accepted by `render()`.
+
     properties : list, optional
         Display a table with the specified properties above the geometry.
+
     colormap : dict or None, optional
-        If provided the output text will contain color codes.  See `style()`
-        for more information.
+        If provided the output text will contain color codes or emoji.  See
+        `style()` for more information.
+
     kwargs : **kwargs, optional
         Additional keyword arguments for `render()`.
+
 
     Yields
     ------
@@ -480,15 +520,18 @@ def paginate(ftrz, width=DEFAULT_WIDTH, properties=None, colormap=None, **kwargs
 def style(rendered_ascii, stylemap):
 
     """
-    Colorize an ASCII rendering.
+    Colorize or add emoji to an ASCII rendering.
+
 
     Parameters
     ----------
     rendered_ascii : str
         An ASCII rendering from `render()` or `stack()`.
+
     stylemap : dict
         A dictionary where keys are color or emoji names and values are characters
         to which the color will be applied.
+
 
     Returns
     -------
@@ -516,14 +559,15 @@ def render_multiple(ftr_char_pairs, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, **kw
 
     """
     A quick way to render multiple layers, features, or geometries without having
-    to render each layer individually and combine via `stack()`.  See
-    `style_multiple()` for similar functionality but with direct access to colors
-    rather than characters.
+    to `render()` each layer and combine via `stack()`.  See `style_multiple()`
+    for similar functionality but with direct access to colors rather than
+    characters.
 
     A minimum bounding box is computed from all the input objects if one is not
     supplied in the kwargs.  See the 'bbox' parameter in `render()` for more
     information about how this parameter can be used and its performance
     implications.
+
 
     Example:
 
@@ -541,18 +585,23 @@ def render_multiple(ftr_char_pairs, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, **kw
             1 1 1       1
             1 0 1
 
+
     Parameters
     ----------
     ftr_char_pairs : list
         A list of tuples where the first element of each tuple is an object
         suitable for `render()` and the second is the ASCII character to use
         when rendering.
+
     width : int, optional
         See `render()`.
+
     fill : str, optional
         See `render()`.
+
     kwargs : **kwargs, optional
         Additional keyword arguments for `render()`.
+
 
     Returns
     -------
@@ -599,6 +648,7 @@ def style_multiple(ftr_style_pairs, width=DEFAULT_WIDTH, fill=None, **kwargs):
     information about how this parameter can be used and its performance
     implications.
 
+
     Example:
 
         # 7's in the output rendering are blue, 1's are black, and 0's are green
@@ -607,7 +657,8 @@ def style_multiple(ftr_style_pairs, width=DEFAULT_WIDTH, fill=None, **kwargs):
         >>> with fio.open('sample-data/polygons.geojson') as poly:
         ...     with fio.open('sample-data/lines.geojson') as lines:
         ...         input_layers = [(poly, 'blue'), (lines, 'black')]
-        ...         print(gj2ascii.style_multiple(input_layers, fill='green', width=10))
+        ...         print(gj2ascii.style_multiple(
+        ...             input_layers, fill='green', width=10))
         0 0 0 0 0 0 1 0 0 0
         0 7 7 7 7 0 7 0 0 0
         0 0 7 0 0 0 7 0 0 0
@@ -617,12 +668,14 @@ def style_multiple(ftr_style_pairs, width=DEFAULT_WIDTH, fill=None, **kwargs):
         0 0 7 7 7 0 0 0 7 0
         0 0 7 1 7 0 0 0 0 0
 
+
     Parameters
     ----------
     ftr_style_pairs : list
         A list of tuples where the first element of each tuple is an object
         suitable for `render()` and the second is the color or emoji name to
         apply to that object.
+
     fill : str or None, optional
         A color to use as the background color.  If `None` then no color is
         applied.  Input layers are assigned a character from 0 to 9 so selecting
@@ -631,8 +684,10 @@ def style_multiple(ftr_style_pairs, width=DEFAULT_WIDTH, fill=None, **kwargs):
         character.  This function exists to provide a quick way to look at
         multiple styled layers so to work around this issue use the other API
         components to build a more specific rendering.
+
     kwargs : **kwargs, optional
         Additional keyword arguments for `render_multiple()`.
+
 
     Returns
     -------
@@ -674,22 +729,23 @@ def min_bbox(input_iter, return_iter=False):
     returned in order to handle iterating over generators twice.  The iterator
     itself is returned if it is not a generator.
 
+
     Parameters
     ----------
     iterator : iterable object
         An iterable object returning one GeoJSON feature, or geometry, or
         object supporting `__geo_interface__` every iteration.
+
     return_iter : bool, optional
         Primarily used by the internal API.  Instead of just returning the
-        ``bbox`, return (bbox, iter) where ``iter`` is a copy of the iterator
+        `bbox`, return (bbox, iter) where `iter` is a copy of the iterator
         if its a generator, otherwise the input iterator is returned.
+
 
     Returns
     -------
     tuple
-        x_min, y_min, x_max, y_max
-    tuple
-        ((x_min, y_min, x_max, y_max), <iterable>)
+        (x_min, y_min, x_max, y_max) or ((x_min, y_min, x_max, y_max), <iterable>)
     """
 
     if hasattr(input_iter, 'bounds'):
