@@ -25,7 +25,7 @@ MULTILAYER_FILE = os.path.join('sample-data', 'multilayer-polygon-line')
 SMALL_AOI_POLY_LINE_FILE = os.path.join('sample-data', 'small-aoi-polygon-line.geojson')
 
 
-EXPECTED_POLYGON_20_WIDE = """
+EXPECTED_POLYGON_40_WIDE = """
 . + . . . . . . . . . . . + . . . . . .
 . + + + . . . . . . . . . . . . . . . .
 . . . + . . . . . . . . . . . . . . . .
@@ -46,7 +46,7 @@ EXPECTED_POLYGON_20_WIDE = """
 """
 
 
-EXPECTED_LINE_20_WIDE = """
+EXPECTED_LINE_40_WIDE = """
 . . . . . . . . + + + + + + + + + + . .
 + + + + + + + + + . . . . . . . . . . .
 + + . . . . . . . . . . . . . . . . . .

@@ -205,9 +205,8 @@ def _cb_infile(ctx, param, value):
     help="Write to an output file instead of stdout."
 )
 @click.option(
-    '-w', '--width', type=click.INT, default=40,
-    help="Render geometry across N columns.  A single space is inserted between each column "
-         "so the actual number of columns is `width * 2`."
+    '-w', '--width', type=click.INT, default=gj2ascii.DEFAULT_WIDTH,
+    help="Render across N text columns.  Height is auto-computed."
 )
 @click.option(
     '-i', '--iterate', is_flag=True,

@@ -7,6 +7,7 @@ from __future__ import division
 
 from collections import OrderedDict
 import itertools
+import math
 import os
 from types import GeneratorType
 
@@ -33,7 +34,7 @@ __all__ = [
 
 DEFAULT_FILL = ' '
 DEFAULT_CHAR = '+'
-DEFAULT_WIDTH = 40
+DEFAULT_WIDTH = 80
 DEFAULT_CHAR_RAMP = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '#', '@', '0', '=', '-', '%', '$']
 _ANSI_RESET = '\033[0m'
@@ -357,8 +358,7 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, char=DEFAULT_CHAR,
         `__geo_interface__`, or an iterable producing one of those types per
         iteration.
     width : int, optional
-        Number of columns in output ASCII.  A space is inserted between every
-        character so the actual output width is `width * 2`.
+        Render across N text columns.  Height is auto-computed.
     char : str or None, optional
         Single character to use for pixels touched by a geometry.
     fill : str or None, optional
@@ -381,6 +381,10 @@ def render(ftrz, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, char=DEFAULT_CHAR,
     str
         ASCII representation of input features or array.
     """
+
+    # User defines width as number of text columns but we need it as number of pixel
+    # columns.  One space is inserted between every pixel so divide by 2.
+    width = int(math.ceil(width / 2))
 
     # Values that aren't a string or 1 character wide cause rendering issues
     fill = str(fill)
