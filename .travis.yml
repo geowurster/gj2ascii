@@ -11,11 +11,10 @@ before_install:
   - sudo apt-get install -y libgdal1h gdal-bin libgdal-dev
 
 install:
-  - pip install -r requirements-dev.txt
-  - pip install .
+  - pip install -e .[all]
 
 script:
-  - nosetests --with-coverage
+  - py.test tests --cov gj2ascii --cov-report term-missing
 
 after_success:
   - coveralls

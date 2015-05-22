@@ -208,6 +208,13 @@ From master branch:
     $ cd gj2ascii
     $ python setup.py install
 
+To enable emoji:
+
+.. code-block:: console
+
+    $ pip install gj2ascii[emoji]
+
+
 Dependencies
 ------------
 
