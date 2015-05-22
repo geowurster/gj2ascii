@@ -10,14 +10,14 @@ Render GeoJSON as ASCII with Python.
 
     >>> import fiona as fio
     >>> import gj2ascii
-    >>> with fio.open('sample-data/polygons.geojson') as poly, \
-    ...         fio.open('sample-data/lines.geojson') as lines, \
+    >>> with fio.open('sample-data/polygons.geojson') as poly, \\
+    ...         fio.open('sample-data/lines.geojson') as lines, \\
     ...         fio.open('sample-data/small-aoi-polygon-line.geojson') as bbox:
     ...     charmap = [
-    ...         (poly, '2'),
-    ...         (lines, '1')
+    ...         (poly, '1'),
+    ...         (lines, '0')
     ...     ]
-    ...     print(gj2ascii.style_multiple(charmap, 20, fill='0', bbox=bbox.bounds))
+    ...     print(gj2ascii.style_multiple(charmap, 40, fill=' ', bbox=bbox.bounds))
     0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 2 2 2 2
     0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 2 2 2
     0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1
@@ -36,7 +36,15 @@ Render GeoJSON as ASCII with Python.
 """
 
 
-from .core import *
+from .core import (
+    array2ascii, ascii2array, dict2table, min_bbox, paginate, render,
+    render_multiple, stack, style, style_multiple
+)
+
+from .core import (
+    DEFAULT_WIDTH, DEFAULT_FILL, DEFAULT_CHAR, DEFAULT_CHAR_RAMP,
+    DEFAULT_CHAR_COLOR, DEFAULT_COLOR_CHAR, ANSI_COLORMAP
+)
 
 
 __version__ = '0.4'

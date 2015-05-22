@@ -1,6 +1,0 @@
-setuptools
-click>=3.0
-numpy>=1.8
-rasterio>=0.18
-shapely
-fiona>=1.2

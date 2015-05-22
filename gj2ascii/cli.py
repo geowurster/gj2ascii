@@ -3,12 +3,12 @@ Commandline interface for gj2ascii
 
 See `gj2ascii --help` for more info.
 
-$ cat sample-data/polygons.geojson | gj2ascii - \
-    sample-data/lines.geojson \
-    --bbox sample-data/small-aoi-polygon-line.geojson \
-    --width 20 \
-    --char ^=red \
-    --char -=blue \
+$ cat sample-data/polygons.geojson | gj2ascii - \\
+    sample-data/lines.geojson \\
+    --bbox sample-data/small-aoi-polygon-line.geojson \\
+    --width 40 \\
+    --char \^=red \\
+    --char -=blue \\
     --fill .=green
 . . . . . . - . . . . . . . . . ^ ^ ^ ^
 . . . . . - . . . . . . . . . . . ^ ^ ^
@@ -106,7 +106,7 @@ def _cb_char_and_fill(ctx, param, value):
 def _cb_properties(ctx, param, value):
 
     """
-    Click callback to validate --parameters.
+    Click callback to validate --properties.
     """
 
     if value in ('%all', None):
@@ -118,6 +118,8 @@ def _cb_properties(ctx, param, value):
 def _cb_multiple_default(ctx, param, value):
 
     """
+    Click callback.
+
     Options that can be specified multiple times are an empty tuple if they are
     never specified.  This callback wraps the default value in a tuple if the
     argument is not specified at all.
@@ -132,7 +134,7 @@ def _cb_multiple_default(ctx, param, value):
 def _cb_bbox(ctx, param, value):
 
     """
-    Validate ``--bbox`` by making sure it doesn't form a 'bow-tie'.
+    Validate --bbox by making sure it doesn't self-intersect.
     """
 
     if value:
@@ -147,7 +149,8 @@ def _cb_bbox(ctx, param, value):
 def _cb_infile(ctx, param, value):
 
     """
-    Let the user specify a datasource and its layers in a single argument.
+    Click callback to validate infile. Let the user specify a datasource and its
+    layers in a single argument.
 
     Example usage:
 
@@ -215,20 +218,21 @@ def _cb_infile(ctx, param, value):
 @click.option(
     '-f', '--fill', 'fill_map', metavar='CHAR', default=gj2ascii.DEFAULT_FILL,
     callback=_cb_char_and_fill,
-    help="Single character to use for pixels that are not covered by a geometry."
+    help="Single character to use for areas that are not covered by a geometry."
 )
 @click.option(
     '-c', '--char', 'char_map', metavar='CHAR', multiple=True, callback=_cb_char_and_fill,
-    help="Character to use for pixels that intersect a geometry.  Several syntaxes are "
-         "supported: `-c +`, `-c blue`, and `-c +=blue`.  The first will use + and no color, "
-         "the second will select a character in the range 0 to 9 and produce blue geometries, "
-         "and the last will use + and produce blue geometry."
+    help="Character to use for areas that intersect a geometry.  Several syntaxes are "
+         "supported: `-c +`, `-c blue`, `-c +=blue`, and `-c :emoji:`.  The first will use + "
+         "and no color, the second will select a character in the range 0 to 9 and produce "
+         "blue geometries, the third will use + and produce blue geometry, and the last will "
+         "use the specified emoji."
 )
 @click.option(
     '--all-touched', is_flag=True, multiple=True, default=False,
     callback=_cb_multiple_default,
-    help="Fill all pixels that intersect a geometry instead of those whose center intersects "
-         "a geometry."
+    help="When rasterizing geometries fill any pixel that touches a geometry rather than any "
+         "pixel whose center is within a geometry."
 )
 @click.option(
     '--crs', 'crs_def', metavar='DEF', multiple=True, callback=_cb_multiple_default,
@@ -247,39 +251,65 @@ def _cb_infile(ctx, param, value):
 @click.option(
     '--bbox', nargs=4, type=click.FLOAT, metavar="X_MIN Y_MIN X_MAX Y_MAX", callback=_cb_bbox,
     help="Only render data within the bounding box.  If not specified a minimum bounding box "
-         "will be computed from all input layers, which can be expensive."
+         "will be computed from all input layers, which can be expensive for layers with a "
+         "large number of features."
 )
 @click.option(
     '--no-style', is_flag=True,
-    help="Disable colors and emoji even if they are specify with `--char`.  Emoji will be "
+    help="Disable colors and emoji even if they are specified with `--char`.  Emoji will be "
          "displayed as a single random character."
 )
 def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_def, no_prompt,
          properties, bbox, no_style):
 
     """
-    Render spatial vector data on the commandline as ASCII.
+    Render spatial vector data as ASCII with colors and emoji.
+
+    \b
+    Multiple layers from multiple files can be rendered as characters, colors,
+    or emoji.  When working with multiple layers they are rendered in order
+    according to the painters algorithm.
+
+    \b
+    When working with multiple layers the layer specific arguments
+    can be specified once to apply to all or multiple to apply specific conditions
+    to specific layers.  In the latter case the arguments are applied in order so
+    the second instance of an argument corresponds to the second layer.
 
     \b
     Examples:
     \b
-        Render the entire layer in a block 20 pixels wide:
+        Render the entire layer across 40 text columms:
     \b
-            $ gj2ascii ${INFILE} --width 20
+            $ gj2ascii ${INFILE} --width 40
     \b
         Read from stdin and fill all pixels that intersect a geometry:
     \b
             $ cat ${INFILE} | gj2ascii - \\
-                --width 15 \\
+                --width 30 \\
                 --all-touched
     \b
-        Render individual features across 10 pixels and display the attributes
+        Render individual features across 20 columns and display the attributes
         for two fields:
     \b
             $ gj2ascii ${INFILE} \\
                 --properties ${PROP1},${PROP2}  \\
-                --width 10 \\
+                --width 20 \\
                 --iterate
+    \b
+        Render multiple layers.  The first layer is read from stdin and will be
+        rendered as a single character, the second will be the character `*' but
+        masked by the color blue, the third will be a randomly assigned character
+        but masked by the color black, and the fourth will be the :thumbsup: emoji:
+    \b
+            $ cat ${SINGLE_LAYER_INFILE} | gj2ascii \\
+                - \\
+                ${INFILE_2},${LAYER_NAME_1},${LAYER_NAME_2} \\
+                ${SINGLE_LAYER_INFILE_1} \\
+                --char + \\
+                --char \\*=blue \\
+                --char black \\
+                --char :thumbsup:
     """
 
     fill_char = [c[0] for c in fill_map][-1]
