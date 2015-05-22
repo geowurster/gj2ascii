@@ -79,7 +79,7 @@ def _cb_char_and_fill(ctx, param, value):
             output.append(val.rsplit('=', 1))
         elif len(val) >= 3 and val.startswith(':') and val.endswith(':'):
             output.append('EMOJI-' + val)
-            if emoji is None:
+            if emoji is None:  # pragma no cover
                 raise click.BadParameter('detected an emoji but could not import the emoji '
                                          'library.  Please `pip install emoji`.')
         else:
@@ -96,7 +96,7 @@ def _cb_char_and_fill(ctx, param, value):
         if isinstance(pair, string_types) and pair.startswith('EMOJI'):
             val = pair.replace('EMOJI-', '')
             char = random.choice(string.ascii_letters)
-            while char in all_chars:
+            while char in all_chars:  # pragma no cover
                 char = random.choice(string.ascii_letters)
             output[idx] = (char, val)
 

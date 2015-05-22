@@ -8,7 +8,9 @@ import itertools
 import os
 import unittest
 
+import emoji
 import fiona as fio
+import pytest
 
 import gj2ascii
 import gj2ascii.core
@@ -323,50 +325,48 @@ def test_render_multiple():
         assert compare_ascii(actual.strip(), expected.strip())
 
 
-# def test_style_multiple():
-#     with fio.open(POLY_FILE) as poly, \
-#             fio.open(LINE_FILE) as lines, \
-#             fio.open(POINT_FILE) as points:
-#         coords = list(poly.bounds) + list(lines.bounds) + list(points.bounds)
-#         bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
-#         width = 10
-#         lyr_color_pairs = [(poly, 'black'), (lines, 'blue'), (points, 'red')]
-#         lyr_char_pairs = [(l, gj2ascii.DEFAULT_COLOR_CHAR[c]) for l, c in lyr_color_pairs]
-#         actual = gj2ascii.style_multiple(
-#             lyr_color_pairs, fill='yellow', width=width, bbox=bbox)
-#
-#         colormap = {
-#             ''
-#         }
-#         colormap = {gj2ascii.DEFAULT_COLOR_CHAR[c]: c for l, c in lyr_color_pairs}
-#         colormap['3'] = 'yellow'
-#         expected = gj2ascii.style(
-#             gj2ascii.render_multiple(
-#                 lyr_char_pairs, width=width, fill='3', bbox=bbox), stylemap=colormap)
-#         print("=======")
-#         print(expected)
-#         print("=======")
-#         print(actual)
-#         print("=======")
-#         assert expected == actual
+def test_render_exceptions():
+    for arg in ('fill', 'char'):
+        with pytest.raises(ValueError):
+            gj2ascii.render([], **{arg: 'too long'})
+    for w in (0, -1, -1000):
+        with pytest.raises(ValueError):
+            gj2ascii.render([], width=w)
 
 
-# def test_style_multiple_transparent_fill():
-#     with fio.open(POLY_FILE) as poly, \
-#             fio.open(LINE_FILE) as lines, \
-#             fio.open(POINT_FILE) as points:
-#         coords = list(poly.bounds) + list(lines.bounds) + list(points.bounds)
-#         bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
-#
-#         width = 10
-#         lyr_color_pairs = [(poly, 'black'), (lines, 'blue'), (points, 'red')]
-#         lyr_char_pairs = [(l, gj2ascii.DEFAULT_COLOR_CHAR[c]) for l, c in lyr_color_pairs]
-#         actual = gj2ascii.style_multiple(lyr_color_pairs, fill=None, width=width, bbox=bbox)
-#
-#         colormap = {gj2ascii.DEFAULT_COLOR_CHAR[c]: c for l, c in lyr_color_pairs}
-#
-#         expected = gj2ascii.style(
-#             gj2ascii.render_multiple(
-#                 lyr_char_pairs, width=width, bbox=bbox), stylemap=colormap)
-#
-#         assert actual.strip() == expected.strip()
+def test_style_multiple():
+    with fio.open(POLY_FILE) as poly, \
+            fio.open(LINE_FILE) as lines, \
+            fio.open(POINT_FILE) as points:
+
+        coords = list(poly.bounds) + list(lines.bounds) + list(points.bounds)
+        bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
+
+        width = 20
+
+        # Mix of colors and emoji with a color fill
+        lyr_color_pairs = [(poly, ':+1:'), (lines, 'blue'), (points, 'red')]
+        actual = gj2ascii.style_multiple(
+            lyr_color_pairs, fill='yellow', width=width, bbox=bbox)
+        assert emoji.unicode_codes.EMOJI_ALIAS_UNICODE[':+1:'] in actual
+        assert '\x1b[34m\x1b[44m' in actual  # blue
+        assert '\x1b[31m\x1b[41m' in actual  # red
+        assert '\x1b[33m\x1b[43m' in actual  # yellow
+
+        # Same as above but single character fill
+        lyr_color_pairs = [(poly, ':+1:'), (lines, 'blue'), (points, 'red')]
+        actual = gj2ascii.style_multiple(
+            lyr_color_pairs, fill='.', width=width, bbox=bbox)
+        assert emoji.unicode_codes.EMOJI_ALIAS_UNICODE[':+1:'] in actual
+        assert '\x1b[34m\x1b[44m' in actual  # blue
+        assert '\x1b[31m\x1b[41m' in actual  # red
+        assert '.' in actual
+
+        # Same as above but emoji fill
+        lyr_color_pairs = [(poly, ':+1:'), (lines, 'blue'), (points, 'red')]
+        actual = gj2ascii.style_multiple(
+            lyr_color_pairs, fill=':water_wave:', width=width, bbox=bbox)
+        assert emoji.unicode_codes.EMOJI_ALIAS_UNICODE[':+1:'] in actual
+        assert '\x1b[34m\x1b[44m' in actual  # blue
+        assert '\x1b[31m\x1b[41m' in actual  # red
+        assert emoji.unicode_codes.EMOJI_ALIAS_UNICODE[':water_wave:'] in actual
