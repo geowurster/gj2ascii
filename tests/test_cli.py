@@ -10,6 +10,7 @@ import unittest
 
 import click
 from click.testing import CliRunner
+import emoji
 import fiona as fio
 
 import gj2ascii
@@ -338,3 +339,28 @@ class TestCallbacks(unittest.TestCase):
         # Bbox with invalid X and Y values
         with self.assertRaises(click.BadParameter):
             cli._cb_bbox(None, None, (2, 2, 1, 1,))
+
+
+def test_with_emoji():
+    result = CliRunner().invoke(cli.main, [
+        POLY_FILE,
+        LINE_FILE,
+        '-c', ':water_wave:',
+        '-c', ':+1:'
+    ])
+    assert result.exit_code is 0
+    for c in (':water_wave:', ':+1:'):
+        ucode = emoji.unicode_codes.EMOJI_ALIAS_UNICODE[c]
+        assert ucode in result.output
+
+
+def test_no_style():
+    result = CliRunner().invoke(cli.main, [
+        POLY_FILE,
+        '-c', '+',
+        '--no-style',
+        '-w', '40',
+        '-f', '.'
+    ])
+    assert result.exit_code is 0
+    assert compare_ascii(result.output.strip(), EXPECTED_POLYGON_40_WIDE.strip())

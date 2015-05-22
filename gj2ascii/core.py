@@ -498,9 +498,6 @@ def paginate(ftrz, width=DEFAULT_WIDTH, properties=None, colormap=None, **kwargs
         One feature (with attribute table and colors if specified) as ascii.
     """
 
-    if 'width' in kwargs:
-        del kwargs['width']
-
     for item in ftrz:
 
         output = []
@@ -548,7 +545,7 @@ def style(rendered_ascii, stylemap):
                 if emoji_or_color in ANSI_COLORMAP:
                     o_row.append(ANSI_COLORMAP[emoji_or_color] + char + ' ' + _ANSI_RESET)
                 else:
-                    o_row.append(emoji.emojize(emoji_or_color + ' '))
+                    o_row.append(emoji.emojize(emoji_or_color + ' ', use_aliases=True))
             else:
                 o_row.append(char + ' ')
         output.append(''.join(o_row))
@@ -609,7 +606,7 @@ def render_multiple(ftr_char_pairs, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, **kw
         All input layers, features, or geometries rendered as ASCII.
     """
 
-    # Render is intended to be used as render(ftrz, width) but if it is expected to only be
+    # Render is intended to be used as `render(ftrz, width)` but if it is expected to only be
     # supplied as a kwarg it might create some confusion.  If the user supplies a value use
     # that instead.
     width = kwargs.pop('width', width)
@@ -635,19 +632,18 @@ def render_multiple(ftr_char_pairs, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, **kw
     return stack(rendered_layers, fill=fill)
 
 
-def style_multiple(ftr_style_pairs, width=DEFAULT_WIDTH, fill=None, **kwargs):
+def style_multiple(ftr_style_pairs, width=DEFAULT_WIDTH, fill=DEFAULT_FILL, **kwargs):
 
     """
     A quick way to render and style multiple layers, features, or geometries
     without having to render each layer individually, combine via `stack()`,
-    and apply colors via `style()`.  See `render_multiple()` For similar
+    and apply colors/emoji via `style()`.  See `render_multiple()` For similar
     functionality but with direct access to characters rather than colors.
 
     A minimum bounding box is computed from all the input objects if one is not
     supplied in the kwargs.  See the 'bbox' parameter in `render()` for more
     information about how this parameter can be used and its performance
     implications.
-
 
     Example:
 
@@ -697,9 +693,7 @@ def style_multiple(ftr_style_pairs, width=DEFAULT_WIDTH, fill=None, **kwargs):
 
     stylemap = {}
 
-    if fill is None:
-        fill_char = ' '
-    elif len(fill) is 1:
+    if len(fill) is 1:
         fill_char = fill
     elif fill in DEFAULT_COLOR_CHAR:
         fill_char = DEFAULT_COLOR_CHAR[fill]
@@ -707,9 +701,6 @@ def style_multiple(ftr_style_pairs, width=DEFAULT_WIDTH, fill=None, **kwargs):
     else:
         fill_char = DEFAULT_CHAR_RAMP[-1]
         stylemap[fill_char] = fill
-
-    if 'width' in kwargs:
-        del kwargs['width']
 
     ftr_char_pairs = []
     for idx, ftrs_style in enumerate(ftr_style_pairs):
