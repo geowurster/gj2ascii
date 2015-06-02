@@ -63,6 +63,8 @@ def _cb_char_and_fill(ctx, param, value):
     This whole thing works but needs to be cleaned up.
     """
 
+    # Good god this is gross ...
+
     # If the user didn't supply anything then value=None
     if value is None:
         value = ()
@@ -96,8 +98,13 @@ def _cb_char_and_fill(ctx, param, value):
         if isinstance(pair, string_types) and pair.startswith('EMOJI'):
             val = pair.replace('EMOJI-', '')
             char = random.choice(string.ascii_letters)
-            while char in all_chars:  # pragma no cover
+            _idx = 0
+            while char in list(itertools.chain(*output))[::2]:  # pragma no cover
                 char = random.choice(string.ascii_letters)
+                _idx += 1
+                if _idx > len(string.ascii_letters):
+                    raise click.ClickException("Too many layers.  The limit is probably 26.  "
+                                               "I'm not really sure...")
             output[idx] = (char, val)
 
     return output
