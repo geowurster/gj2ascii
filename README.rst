@@ -17,11 +17,13 @@
 
 Render spatial vector data as ASCII with Python on the commandline.
 
-.. image:: https://github.com/geowurster/gj2ascii/tree/master/images/emoji-land-cover-80w.png
+.. image:: https://raw.githubusercontent.com/geowurster/gj2ascii/master/images/emoji-land-cover-80w.png
+    :target: https://github.com/geowurster/gj2ascii/blob/master/images/emoji-land-cover-80w.png
     :width: 1149
     :height: 1127
 
-.. image:: https://github.com/geowurster/gj2ascii/tree/master/images/ascii-land-cover-80w.png
+.. image:: https://raw.githubusercontent.com/geowurster/gj2ascii/master/images/ascii-land-cover-80w.png
+    :image: https://github.com/geowurster/gj2ascii/tree/master/images/ascii-land-cover-80w.png
     :width: 1133
     :height: 1107
 
