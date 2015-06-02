@@ -19,8 +19,8 @@ Render spatial vector data as ASCII or emoji with Python on the commandline.
 
 .. image:: https://raw.githubusercontent.com/geowurster/gj2ascii/master/images/emoji-land-cover-80w.png
     :target: https://github.com/geowurster/gj2ascii/blob/master/images/emoji-land-cover-80w.png
-    :width: 1149
-    :height: 1127
+    :width: 574
+    :height: 563
 
 
 Why?
@@ -80,7 +80,7 @@ command:
 
 The same data can be rendered with ASCII characters instead:
 
-.. code-block::
+.. code-block:: console
 
     $ gj2ascii \
         --bbox -130 9 -61.5 77 \
@@ -105,9 +105,9 @@ The same data can be rendered with ASCII characters instead:
 
 
 .. image:: https://raw.githubusercontent.com/geowurster/gj2ascii/master/images/ascii-land-cover-80w.png
-    :image: https://github.com/geowurster/gj2ascii/tree/master/images/ascii-land-cover-80w.png
-    :width: 1133
-    :height: 1107
+    :target: https://github.com/geowurster/gj2ascii/tree/master/images/ascii-land-cover-80w.png
+    :width: 566
+    :height: 553
 
 
 Other Examples
@@ -183,7 +183,8 @@ are assigned to which color, use this one:
 
     import fiona as fio
     import gj2ascii
-    with fio.open('sample-data/polygons.geojson') as poly, fio.open('sample-data/lines.geojson') as lines, \
+    with fio.open('sample-data/polygons.geojson') as poly, \
+            fio.open('sample-data/lines.geojson') as lines, \
             fio.open('sample-data/small-aoi-polygon-line.geojson') as bbox:
         layermap = [
             (poly, 'red'),
@@ -214,7 +215,8 @@ If the user cares about which character is assigned to which layer, use this one
     import fiona as fio
     import gj2ascii
 
-    with fio.open('sample-data/polygons.geojson') as poly, fio.open('sample-data/lines.geojson') as lines, \
+    with fio.open('sample-data/polygons.geojson') as poly, \
+            fio.open('sample-data/lines.geojson') as lines, \
             fio.open('sample-data/small-aoi-polygon-line.geojson') as bbox:
 
         # Render each layer individually with the same bbox and width
