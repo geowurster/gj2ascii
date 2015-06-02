@@ -364,3 +364,12 @@ def test_no_style():
     ])
     assert result.exit_code is 0
     assert compare_ascii(result.output.strip(), EXPECTED_POLYGON_40_WIDE.strip())
+
+
+def test_print_colors():
+    result = CliRunner().invoke(cli.main, [
+        '--colors'
+    ])
+    assert result.exit_code is 0
+    for color in gj2ascii.DEFAULT_COLOR_CHAR.keys():
+        assert color in result.output
