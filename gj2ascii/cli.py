@@ -207,6 +207,19 @@ def _cb_infile(ctx, param, value):
     return output
 
 
+def _cb_print_colors(ctx, param, value):
+
+    """
+    Click callback to print available colors to the commandline and then exit.
+    """
+
+    if not value or ctx.resilient_parsing:
+        return
+    for color in gj2ascii.DEFAULT_COLOR_CHAR.keys():
+        click.echo(color)
+    ctx.exit()
+
+
 @click.command()
 @click.version_option(version=gj2ascii.__version__)
 @click.argument('infile', nargs=-1, required=True, callback=_cb_infile)
@@ -265,6 +278,10 @@ def _cb_infile(ctx, param, value):
     '--no-style', is_flag=True,
     help="Disable colors and emoji even if they are specified with `--char`.  Emoji will be "
          "displayed as a single random character."
+)
+@click.option(
+    '--colors', is_flag=True, callback=_cb_print_colors, expose_value=False, is_eager=True,
+    help="Print a list of available colors and exit."
 )
 def main(infile, outfile, width, iterate, fill_map, char_map, all_touched, crs_def, no_prompt,
          properties, bbox, no_style):
