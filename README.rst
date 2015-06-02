@@ -15,17 +15,12 @@
 .. image:: https://coveralls.io/repos/geowurster/gj2ascii/badge.svg?branch=master
     :target: https://coveralls.io/r/geowurster/gj2ascii
 
-Render spatial vector data as ASCII with Python on the commandline.
+Render spatial vector data as ASCII or emoji with Python on the commandline.
 
 .. image:: https://raw.githubusercontent.com/geowurster/gj2ascii/master/images/emoji-land-cover-80w.png
     :target: https://github.com/geowurster/gj2ascii/blob/master/images/emoji-land-cover-80w.png
     :width: 1149
     :height: 1127
-
-.. image:: https://raw.githubusercontent.com/geowurster/gj2ascii/master/images/ascii-land-cover-80w.png
-    :image: https://github.com/geowurster/gj2ascii/tree/master/images/ascii-land-cover-80w.png
-    :width: 1133
-    :height: 1107
 
 
 Why?
@@ -64,7 +59,32 @@ command:
 
     $ gj2ascii \
         --bbox -130 9 -61.5 77 \
-        --width 40 \
+        --width 80 \
+        0.geojson -c ' ' \
+        1.geojson -c :christmas_tree: \
+        2.geojson -c :evergreen_tree: \
+        3.geojson -c :maple_leaf: \
+        4.geojson -c :maple_leaf: \
+        5.geojson -c :deciduous_tree: \
+        6.geojson -c :herb: \
+        7.geojson -c :herb: \
+        8.geojson -c :herb: \
+        9.geojson -c :herb: \
+        10.geojson -c :ear_of_rice: \
+        11.geojson -c :turtle: \
+        12.geojson -c :tractor: \
+        13.geojson -c :house_building: \
+        14.geojson -c :leaf_fluttering_in_wind: \
+        15.geojson -c :snowflake: \
+        16.geojson -c :black_medium_square:
+
+The same data can be rendered with ASCII characters instead:
+
+.. code-block::
+
+    $ gj2ascii \
+        --bbox -130 9 -61.5 77 \
+        --width 80 \
         0.shp -c ' ' \
         1.shp -c \# \
         2.shp -c \^ \
@@ -83,10 +103,11 @@ command:
         15.shp -c \* \
         16.shp -c O
 
-Here's how to create the ASCII example - the escaping is important:
 
-.. code-block::
-
+.. image:: https://raw.githubusercontent.com/geowurster/gj2ascii/master/images/ascii-land-cover-80w.png
+    :image: https://github.com/geowurster/gj2ascii/tree/master/images/ascii-land-cover-80w.png
+    :width: 1133
+    :height: 1107
 
 
 Other Examples
