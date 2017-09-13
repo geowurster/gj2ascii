@@ -10,11 +10,13 @@ __pycache__/
 env/
 venv/
 venv2/
+venv3/
 build/
 develop-eggs/
 dist/
 downloads/
 eggs/
+.eggs/
 lib/
 lib64/
 parts/
@@ -41,6 +43,11 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*,cover
 
 # Translations
 *.mo
@@ -55,5 +62,9 @@ docs/_build/
 # PyBuilder
 target/
 
-# JetBrains PyCharm
+# Intellij PyCharm
 .idea/
+
+# Project
+ignore/
+buh.py
