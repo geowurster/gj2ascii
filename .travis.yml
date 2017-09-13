@@ -1,11 +1,39 @@
 language: python
 
+sudo: false
+
+cache:
+  directories:
+    - ~/.cache/pip
+
+env:
+  global:
+    - PIP_WHEEL_DIR=$HOME/.cache/pip/wheels
+    - PIP_FIND_LINKS=file://$HOME/.cache/pip/wheels
+
+addons:
+  apt:
+    packages:
+      - gdal-bin
+      - gfortran
+      - libatlas-base-dev
+      - libatlas-dev
+      - libgdal-dev
+      - libgdal1h
+      - libgeos-dev
+      - libhdf5-serial-dev
+      - libpng12-dev
+      - libproj-dev
+
 python:
   - 2.7
   - 3.6
 
+before_install:
+  - pip install pip wheel setuptools coveralls --upgrade
+
 install:
-  - pip install -e .\[all\]
+  - pip install .\[all\]
 
 script:
   - pytest tests --cov gj2ascii --cov-report term-missing
