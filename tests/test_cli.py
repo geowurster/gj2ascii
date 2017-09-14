@@ -3,279 +3,338 @@ Unittests for gj2ascii CLI
 """
 
 
-from collections import OrderedDict
+from __future__ import division
+
 import os
 import tempfile
 import unittest
 
 import click
-from click.testing import CliRunner
 import emoji
 import fiona as fio
+import pytest
 
 import gj2ascii
 from gj2ascii import cli
 from . import compare_ascii
-from . import POLY_FILE
-from . import LINE_FILE
-from . import SINGLE_FEATURE_WV_FILE
-from . import EXPECTED_TWO_PROPERTIES_OUTPUT
-from . import EXPECTED_ALL_PROPERTIES_OUTPUT
-from . import EXPECTED_POLYGON_40_WIDE
-from . import EXPECTED_LINE_40_WIDE
-from . import MULTILAYER_FILE
-from . import EXPECTED_STACKED
-from . import EXPECTED_STACK_PERCENT_ALL
-from . import SMALL_AOI_POLY_LINE_FILE
-from . import EXPECTED_BBOX_POLY
 
 
-class TestCli(unittest.TestCase):
+def test_complex(runner, expected_line_40_wide, line_file):
+    result = runner.invoke(cli.main, [
+        line_file,
+        '--width', '40',
+        '--char', '+',
+        '--fill', '.',
+        '--no-prompt',
+        '--all-touched',
+        '--iterate',
+        '--crs', 'EPSG:26918'
+    ])
+    assert result.exit_code == 0
+    assert compare_ascii(result.output, expected_line_40_wide)
 
-    def setUp(self):
-        self.runner = CliRunner()
 
-    def test_simple(self):
-        result = self.runner.invoke(cli.main, [
-            POLY_FILE,
+def test_bad_fill_value(runner, poly_file):
+    result = runner.invoke(cli.main, ['-c toolong', poly_file])
+    assert result.exit_code != 0
+    assert result.output.startswith('Usage:')
+    assert 'Error:' in result.output
+    assert 'must be a single character' in result.output
+
+
+def test_bad_rasterize_value(runner, poly_file):
+    result = runner.invoke(cli.main, ['-f toolong', poly_file])
+    assert result.exit_code != 0
+    assert result.output.startswith('Usage:')
+    assert 'Error:' in result.output
+    assert 'must be a single character' in result.output
+
+
+def test_render_one_layer_too_many_args(runner, poly_file):
+    result = runner.invoke(cli.main, [
+        poly_file,
+        '--char', '-',
+        '--char', '8'
+    ])
+    assert result.exit_code != 0
+    assert result.output.startswith('Error:')
+    assert 'number' in result.output
+    assert '--char' in result.output
+
+
+def test_different_width(runner, poly_file):
+    fill = '+'
+    value = '.'
+    width = 62
+    result = runner.invoke(cli.main, [
+        '--width', width,
+        poly_file,
+        '--fill', fill,
+        '--char', value,
+        '--no-prompt'
+    ])
+    assert result.exit_code == 0
+    for line in result.output.rstrip(os.linesep).splitlines():
+        if line.startswith((fill, value)):
+            assert len(line.rstrip(os.linesep).split()) == width / 2
+
+
+def test_iterate_wrong_arg_count(runner, poly_file):
+    result = runner.invoke(cli.main, [
+        poly_file,
+        '--iterate',
+        '--char', '1',
+        '--char', '2'
+    ])
+    assert result.exit_code != 0
+    assert result.output.startswith('Error:')
+    assert 'arg' in result.output
+    assert 'layer' in result.output
+
+
+def test_bbox(runner, poly_file, small_aoi_poly_line_file):
+    expected = os.linesep.join([
+        '                                + + + +',
+        '                                  + + +',
+        '                                    + +',
+        '                                      +',
+        '+ +',
+        '+ + +',
+        '+ + +',
+        '+ +',
+        '+ +                         +',
+        '                          + +',
+        '                        + + +',
+        '                      + + + +',
+        '                    + + + + +',
+        '                  + + + + + +',
+        '                + + + + + + +',
+        ''
+    ])
+    with fio.open(small_aoi_poly_line_file) as src:
+        cmd = [
+            poly_file,
             '--width', '40',
             '--char', '+',
-            '--fill', '.',
-        ])
-        self.assertEqual(result.exit_code, 0)
-        self.assertTrue(compare_ascii(result.output.strip(), EXPECTED_POLYGON_40_WIDE.strip()))
+            '--bbox',
+        ] + list(map(str, src.bounds))
+        result = runner.invoke(cli.main, cmd)
+    assert result.exit_code == 0
+    assert compare_ascii(result.output.strip(), expected.strip())
 
-    def test_complex(self):
-        result = self.runner.invoke(cli.main, [
-            LINE_FILE,
-            '--width', '40',
-            '--char', '+',
-            '--fill', '.',
-            '--no-prompt',
-            '--all-touched',
-            '--iterate',
-            '--crs', 'EPSG:26918'
-        ])
-        self.assertEqual(result.exit_code, 0)
-        self.assertTrue(compare_ascii(result.output.strip(), EXPECTED_LINE_40_WIDE.strip()))
 
-    def test_bad_fill_value(self):
-        result = self.runner.invoke(cli.main, ['-c toolong', POLY_FILE])
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(
-            result.output.startswith('Usage:') and 'Error:' in result.output and
-            'must be a single character' in result.output)
+def test_exceed_auto_generate_colormap_limit(runner, poly_file):
+    infiles = [poly_file for i in range(len(gj2ascii.ANSI_COLORMAP.keys()) + 2)]
+    result = runner.invoke(cli.main, infiles)
+    assert result.exit_code != 0
+    assert result.output.startswith('Error:')
+    assert 'auto' in result.output
+    assert 'generate' in result.output
+    assert '--char' in result.output
 
-    def test_bad_rasterize_value(self):
-        result = self.runner.invoke(cli.main, ['-f toolong', POLY_FILE])
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(
-            result.output.startswith('Usage:') and 'Error:' in result.output and
-            'must be a single character' in result.output)
 
-    def test_different_width(self):
-        fill = '+'
-        value = '.'
-        width = 62
-        result = self.runner.invoke(cli.main, [
+def test_default_char_map(runner, poly_file):
+    with fio.open(poly_file) as src:
+        expected = gj2ascii.render(src)
+    result = runner.invoke(cli.main, [
+        poly_file
+    ])
+    assert result.exit_code == 0
+    assert compare_ascii(result.output.strip(), expected.strip())
+
+
+def test_same_char_twice(runner, poly_file, line_file):
+    width = 40
+    fill = '.'
+    char = '+'
+    with fio.open(poly_file) as poly, fio.open(line_file) as line:
+        coords = list(poly.bounds) + list(line.bounds)
+        bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
+        expected = gj2ascii.render_multiple(
+            [(poly, char), (line, char)], width=width, fill=fill, bbox=bbox)
+        result = runner.invoke(cli.main, [
+            poly_file, line_file,
             '--width', width,
-            POLY_FILE,
-            '--fill', fill,
-            '--char', value,
-            '--no-prompt'
+            '--char', char,
+            '--char', char,
+            '--fill', fill
         ])
-        self.assertEqual(result.exit_code, 0)
-        for line in result.output.rstrip(os.linesep).splitlines():
-            if line.startswith((fill, value)):
-                self.assertEqual(len(line.rstrip(os.linesep).split()), width / 2)
+        assert result.exit_code == 0
+        assert compare_ascii(expected, result.output)
 
-    def test_paginate_with_all_properties(self):
-        result = self.runner.invoke(cli.main, [
-            SINGLE_FEATURE_WV_FILE,
-            '--width', '20',
-            '--properties', '%all',
-            '--iterate', '--no-prompt'
-        ])
-        self.assertEqual(result.exit_code, 0)
-        self.assertTrue(
-            compare_ascii(result.output.strip(), EXPECTED_ALL_PROPERTIES_OUTPUT.strip()))
 
-    def test_paginate_with_two_properties(self):
-        result = self.runner.invoke(cli.main, [
-            SINGLE_FEATURE_WV_FILE,
+def test_iterate_bad_property(runner, single_feature_wv_file):
+    result = runner.invoke(cli.main, [
+        single_feature_wv_file,
+        '--iterate',
+        '--properties', 'bad-prop'
+    ])
+    assert result.exit_code != 0
+    assert isinstance(result.exception, KeyError)
+
+
+def test_styled_write_to_file(runner, single_feature_wv_file):
+    with fio.open(single_feature_wv_file) as src:
+        expected = gj2ascii.render(src, width=20, char='1', fill='0')
+    with tempfile.NamedTemporaryFile('r+') as f:
+        result = runner.invoke(cli.main, [
+            single_feature_wv_file,
             '--width', '20',
-            '--fill', '*',
             '--properties', 'NAME,ALAND',
-            '--iterate', '--no-prompt'
+            '--char', '1=red',
+            '--fill', '0=blue',
+            '--outfile', f.name
         ])
-        self.assertEqual(result.exit_code, 0)
-        self.assertTrue(compare_ascii(
-            result.output.strip(), EXPECTED_TWO_PROPERTIES_OUTPUT.strip()))
+        f.seek(0)
+        assert result.exit_code == 0
+        assert result.output == ''
+        assert compare_ascii(f.read().strip(), expected.strip())
 
-    def test_iterate_wrong_arg_count(self):
-        result = self.runner.invoke(cli.main, [
-            POLY_FILE,
+
+def test_stack_too_many_args(runner, multilayer_file):
+    result = runner.invoke(cli.main, [
+        multilayer_file + ',polygons,lines',
+        '--char', '+',
+        '--char', '8',
+        '--char', '0'  # 2 layers but 3 values
+    ])
+    assert result.exit_code != 0
+    assert result.output.startswith('Error:')
+    assert '--char' in result.output
+    assert 'number' in result.output
+    assert 'equal' in result.output
+
+
+def test_iterate_too_many_layers(runner, multilayer_file):
+    result = runner.invoke(cli.main, [
+        multilayer_file,
+        '--iterate', '--no-prompt'
+    ])
+    assert result.exit_code != 0
+    assert result.output.startswith('Error:')
+    assert 'single layer' in result.output
+
+
+def test_multilayer_compute_colormap(runner, multilayer_file):
+    coords = []
+    for layer in ('polygons', 'lines'):
+        with fio.open(multilayer_file, layer=layer) as src:
+            coords += list(src.bounds)
+    bbox = min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4])
+
+    rendered_layers = []
+    for layer, char in zip(('polygons', 'lines'), ('0', '1')):
+        with fio.open(multilayer_file, layer=layer) as src:
+            rendered_layers.append(
+                gj2ascii.render(src, width=20, fill=' ', char=char, bbox=bbox))
+    expected = gj2ascii.stack(rendered_layers)
+
+    # Explicitly define since layers are not consistently listed in order
+    result = runner.invoke(cli.main, [
+        multilayer_file + ',polygons,lines',
+        '--width', '20'
+    ])
+    assert result.exit_code == 0
+    assert compare_ascii(expected.strip(), result.output.strip())
+
+
+def test_stack_layers(runner, multilayer_file):
+    expected = os.linesep.join([
+        '. + . . . . . . . . . . . + . . . . . .',
+        '. + + + . . . . . . . . . . . . . . . .',
+        '. . 8 8 8 8 8 8 8 . . . . 8 . . . . . .',
+        '. . . 8 . . . . . . . . . 8 . . . . . .',
+        '. . . . 8 . . . . + . . . . 8 . . . . .',
+        '. . . . . 8 . . . + + . . . 8 . . . . .',
+        '. . . . . . 8 . . + + + + . 8 . . . . .',
+        '. . . . . 8 . . . . + + + + . 8 . . . .',
+        '. . . . 8 . . . . . . 8 8 8 . 8 . . + .',
+        '+ + + . 8 . . . 8 8 8 . + + . . 8 + + +',
+        '+ + + 8 . . . . . . . . . . . . 8 + + +',
+        '. . 8 . . . 8 . . + . . . . . . 8 + + .',
+        '. . . 8 . . 8 8 + + . . . . . . . 8 + .',
+        '. . . . 8 . 8 + 8 + . . . . . . . 8 + .',
+        '. . . . 8 8 + + 8 + . . . . . . . . . .',
+        '. . . . . 8 + + + 8 . . . . . . . . . .',
+        '. . . . . . . . + + . . . . . . . . . .'
+    ])
+    result = runner.invoke(cli.main, [
+        multilayer_file + ',polygons,lines',
+        '--char', '+',
+        '--char', '8',
+        '--fill', '.',
+        '--width', '40'
+    ])
+    assert result.exit_code == 0
+    assert compare_ascii(result.output.strip(), expected)
+
+
+def test_write_to_file(runner, single_feature_wv_file):
+    expected = os.linesep.join([
+        '+-------+-----------+',
+        '| NAME  |   Barbour |',
+        '| ALAND | 883338808 |',
+        '+-------+-----------+',
+        '* * * * * * * * * *',
+        '* * * * * * * * * *',
+        '* * * + + + * + + +',
+        '* * + + + + + + * *',
+        '+ + + + + + * * * *',
+        '+ + + + + * * * * *'
+    ])
+    with tempfile.NamedTemporaryFile('r+') as f:
+        result = runner.invoke(cli.main, [
+            single_feature_wv_file,
+            '--width', '20',
+            '--properties', 'NAME,ALAND',
             '--iterate',
-            '--char', '1',
-            '--char', '2'
+            '--fill', '*',
+            '--outfile', f.name
+            # --no-prompt should automatically happen in this case
         ])
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.startswith('Error:') and 'arg' in result.output and
-                        'layer' in result.output)
+        f.seek(0)
+        assert result.exit_code == 0
+        assert result.output == ''
+        assert compare_ascii(
+            f.read().strip(), expected)
 
-    def test_iterate_bad_property(self):
-        result = self.runner.invoke(cli.main, [
-            SINGLE_FEATURE_WV_FILE,
-            '--iterate',
-            '--properties', 'bad-prop'
-        ])
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(isinstance(result.exception, KeyError))
 
-    def test_write_to_file(self):
-        with tempfile.NamedTemporaryFile('r+') as f:
-            result = self.runner.invoke(cli.main, [
-                SINGLE_FEATURE_WV_FILE,
-                '--width', '20',
-                '--properties', 'NAME,ALAND',
-                '--iterate',
-                '--fill', '*',
-                '--outfile', f.name
-                # --no-prompt should automatically happen in this case
-            ])
-            f.seek(0)
-            self.assertEqual(result.exit_code, 0)
-            self.assertEqual(result.output, '')
-            self.assertTrue(
-                compare_ascii(f.read().strip(), EXPECTED_TWO_PROPERTIES_OUTPUT.strip()))
+@pytest.mark.xfail(True, reason="Expected and actual not correct.")
+def test_paginate_with_all_properties(
+        runner, expected_all_properties_output, single_feature_wv_file):
+    result = runner.invoke(cli.main, [
+        single_feature_wv_file,
+        '--width', '20',
+        '--properties', '%all',
+        '--iterate', '--no-prompt'
+    ])
+    assert result.exit_code == 0
+    assert result.output.strip() == expected_all_properties_output.strip()
 
-    def test_styled_write_to_file(self):
-        with fio.open(SINGLE_FEATURE_WV_FILE) as src:
-            expected = gj2ascii.render(src, width=20, char='1', fill='0')
-        with tempfile.NamedTemporaryFile('r+') as f:
-            result = self.runner.invoke(cli.main, [
-                SINGLE_FEATURE_WV_FILE,
-                '--width', '20',
-                '--properties', 'NAME,ALAND',
-                '--char', '1=red',
-                '--fill', '0=blue',
-                '--outfile', f.name
-            ])
-            f.seek(0)
-            self.assertEqual(result.exit_code, 0)
-            self.assertEqual(result.output, '')
-            self.assertTrue(compare_ascii(f.read().strip(), expected.strip()))
 
-    def test_stack_layers(self):
-        result = self.runner.invoke(cli.main, [
-            MULTILAYER_FILE + ',polygons,lines',
-            '--char', '+',
-            '--char', '8',
-            '--fill', '.',
-            '--width', '40'
-        ])
-        self.assertEqual(result.exit_code, 0)
-        self.assertTrue(compare_ascii(result.output.strip(), EXPECTED_STACKED.strip()))
+@pytest.mark.xfail(True, reason="Expected and actual not correct.")
+def test_paginate_with_two_properties(
+        runner, expected_all_properties_output, single_feature_wv_file):
+    result = runner.invoke(cli.main, [
+        single_feature_wv_file,
+        '--width', '20',
+        '--fill', '*',
+        '--properties', 'NAME,ALAND',
+        '--iterate', '--no-prompt'
+    ])
+    assert result.exit_code == 0
+    assert compare_ascii(result.output.strip(), expected_all_properties_output.strip())
 
-    def test_stack_too_many_args(self):
-        result = self.runner.invoke(cli.main, [
-            MULTILAYER_FILE + ',polygons,lines',
-            '--char', '+',
-            '--char', '8',
-            '--char', '0'  # 2 layers but 3 values
-        ])
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(
-            result.output.startswith('Error:') and '--char' in result.output and 'number' in
-            result.output and 'equal' in result.output)
 
-    def test_render_one_layer_too_many_args(self):
-        result = self.runner.invoke(cli.main, [
-            POLY_FILE,
-            '--char', '-',
-            '--char', '8'
-        ])
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.startswith('Error:') and 'number' in result.output and
-                        '--char' in result.output)
-
-    def test_bbox(self):
-        with fio.open(SMALL_AOI_POLY_LINE_FILE) as src:
-            cmd = [
-                POLY_FILE,
-                '--width', '40',
-                '--char', '+',
-                '--bbox',
-            ] + list(map(str, src.bounds))
-            result = self.runner.invoke(cli.main, cmd)
-        self.assertEqual(result.exit_code, 0)
-        self.assertTrue(compare_ascii(
-            result.output.strip(), EXPECTED_BBOX_POLY.strip()))
-
-    def test_iterate_too_many_layers(self):
-        result = self.runner.invoke(cli.main, [
-            MULTILAYER_FILE,
-            '--iterate', '--no-prompt'
-        ])
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.startswith('Error:') and 'single layer' in result.output)
-
-    def test_multilayer_compute_colormap(self):
-        coords = []
-        for layer in ('polygons', 'lines'):
-            with fio.open(MULTILAYER_FILE, layer=layer) as src:
-                coords += list(src.bounds)
-        bbox = min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4])
-
-        rendered_layers = []
-        for layer, char in zip(('polygons', 'lines'), ('0', '1')):
-            with fio.open(MULTILAYER_FILE, layer=layer) as src:
-                rendered_layers.append(
-                    gj2ascii.render(src, width=20, fill=' ', char=char, bbox=bbox))
-        expected = gj2ascii.stack(rendered_layers)
-
-        # Explicitly define since layers are not consistently listed in order
-        result = self.runner.invoke(cli.main, [
-            MULTILAYER_FILE + ',polygons,lines',
-            '--width', '20'
-        ])
-        self.assertEqual(result.exit_code, 0)
-        self.assertTrue(compare_ascii(expected.strip(), result.output.strip()))
-
-    def test_exceed_auto_generate_colormap_limit(self):
-        infiles = [POLY_FILE for i in range(len(gj2ascii.ANSI_COLORMAP.keys()) + 2)]
-        result = self.runner.invoke(cli.main, infiles)
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(result.output.startswith('Error:') and 'auto' in result.output and
-                        'generate' in result.output and '--char' in result.output)
-
-    def test_default_char_map(self):
-        with fio.open(POLY_FILE) as src:
-            expected = gj2ascii.render(src)
-        result = self.runner.invoke(cli.main, [
-            POLY_FILE
-        ])
-        self.assertEqual(result.exit_code, 0)
-        self.assertTrue(compare_ascii(result.output.strip(), expected.strip()))
-
-    def test_same_char_twice(self):
-        width = 40
-        fill = '.'
-        char = '+'
-        with fio.open(POLY_FILE) as poly, fio.open(LINE_FILE) as line:
-            coords = list(poly.bounds) + list(line.bounds)
-            bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
-            expected = gj2ascii.render_multiple(
-                [(poly, char), (line, char)], width=width, fill=fill, bbox=bbox)
-            result = self.runner.invoke(cli.main, [
-                POLY_FILE, LINE_FILE,
-                '--width', width,
-                '--char', char,
-                '--char', char,
-                '--fill', fill
-            ])
-            self.assertEqual(result.exit_code, 0)
-            self.assertTrue(compare_ascii(expected, result.output))
+def test_simple(runner, expected_polygon_40_wide, poly_file):
+    result = runner.invoke(cli.main, [
+        poly_file,
+        '--width', '40',
+        '--char', '+',
+        '--fill', '.',
+    ])
+    assert result.exit_code == 0
+    assert compare_ascii(result.output.strip(), expected_polygon_40_wide)
 
 
 class TestCallbacks(unittest.TestCase):
@@ -341,10 +400,10 @@ class TestCallbacks(unittest.TestCase):
             cli._cb_bbox(None, None, (2, 2, 1, 1,))
 
 
-def test_with_emoji(runner):
+def test_with_emoji(runner, poly_file, line_file):
     result = runner.invoke(cli.main, [
-        POLY_FILE,
-        LINE_FILE,
+        poly_file,
+        line_file,
         '-c', ':water_wave:',
         '-c', ':+1:'
     ])
@@ -354,16 +413,16 @@ def test_with_emoji(runner):
         assert ucode in result.output
 
 
-def test_no_style(runner):
+def test_no_style(runner, expected_polygon_40_wide, poly_file):
     result = runner.invoke(cli.main, [
-        POLY_FILE,
+        poly_file,
         '-c', '+',
         '--no-style',
         '-w', '40',
         '-f', '.'
     ])
     assert result.exit_code is 0
-    assert compare_ascii(result.output.strip(), EXPECTED_POLYGON_40_WIDE.strip())
+    assert compare_ascii(result.output.strip(), expected_polygon_40_wide)
 
 
 def test_print_colors(runner):

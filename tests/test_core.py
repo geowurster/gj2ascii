@@ -16,10 +16,6 @@ import gj2ascii
 import gj2ascii.core
 from . import compare_ascii
 import numpy as np
-from . import POLY_FILE
-from . import LINE_FILE
-from . import POINT_FILE
-from . import EXPECTED_POLYGON_40_WIDE
 
 
 # compare_ascii() is a function that is defined within the unittests and only used for testing
@@ -59,35 +55,35 @@ class TestDictTable(unittest.TestCase):
         self.assertEqual(gj2ascii.dict2table(test_dict), expected)
 
 
-class TestRender(unittest.TestCase):
+def test_render_exception():
+    with pytest.raises(TypeError):
+        gj2ascii.render([], None, fill='asdf')
+    with pytest.raises(TypeError):
+        gj2ascii.render([], None, char='asdf')
+    with pytest.raises(ValueError):
+        gj2ascii.render([], width=-1)
 
-    def test_exception(self):
-        with self.assertRaises(TypeError):
-            gj2ascii.render([], None, fill='asdf')
-        with self.assertRaises(TypeError):
-            gj2ascii.render([], None, char='asdf')
-        with self.assertRaises(ValueError):
-            gj2ascii.render([], width=-1)
 
-    def test_compare_bbox_given_vs_detect_collection_vs_compute_vs_as_generator(self):
-        # Easiest to compare these 3 things together since they are related
-        with fio.open(POLY_FILE) as src:
-            given = gj2ascii.render(src, 15, bbox=src.bounds)
-            computed = gj2ascii.render([i for i in src], 15)
-            fio_collection = gj2ascii.render(src, 15)
-            # Passing in a generator and not specifying x/y min/max requires the features to
-            # be iterated over twice which is a problem because generators cannot be reset.
-            # A backup of the generator should be created automatically and iterated over the
-            # second time.
-            generator_output = gj2ascii.render((f for f in src), 15)
-        for pair in itertools.combinations(
-                [given, computed, fio_collection, generator_output], 2):
-            self.assertEqual(*pair)
+def test_render_compare_bbox_given_vs_detect_collection_vs_compute_vs_as_generator(poly_file):
+    # Easiest to compare these 3 things together since they are related
+    with fio.open(poly_file) as src:
+        given = gj2ascii.render(src, 15, bbox=src.bounds)
+        computed = gj2ascii.render([i for i in src], 15)
+        fio_collection = gj2ascii.render(src, 15)
+        # Passing in a generator and not specifying x/y min/max requires the features to
+        # be iterated over twice which is a problem because generators cannot be reset.
+        # A backup of the generator should be created automatically and iterated over the
+        # second time.
+        generator_output = gj2ascii.render((f for f in src), 15)
+    for pair in itertools.combinations(
+            [given, computed, fio_collection, generator_output], 2):
+        assert len(set(pair)) == 1
 
-    def test_with_fio(self):
-        with fio.open(POLY_FILE) as src:
-            r = gj2ascii.render(src, width=40, fill='.', char='+', bbox=src.bounds)
-            self.assertEqual(EXPECTED_POLYGON_40_WIDE.strip(), r.strip())
+
+def test_with_fio(expected_polygon_40_wide, poly_file):
+    with fio.open(poly_file) as src:
+        r = gj2ascii.render(src, width=40, fill='.', char='+', bbox=src.bounds)
+        assert expected_polygon_40_wide == r.rstrip()
 
 
 class TestGeometryExtractor(unittest.TestCase):
@@ -263,7 +259,7 @@ class TestStyle(unittest.TestCase):
             expected, gj2ascii.style(gj2ascii.array2ascii(array), stylemap=colormap))
 
 
-def test_paginate():
+def test_paginate(poly_file):
 
     char = '+'
     fill = '.'
@@ -271,24 +267,24 @@ def test_paginate():
         '+': 'red',
         '.': 'black'
     }
-    with fio.open(POLY_FILE) as src1, fio.open(POLY_FILE) as src2:
+    with fio.open(poly_file) as src1, fio.open(poly_file) as src2:
         for paginated_feat, feat in zip(
                 gj2ascii.paginate(src1, char=char, fill=fill, colormap=colormap), src2):
             assert paginated_feat.strip() == gj2ascii.style(
                 gj2ascii.render(feat, char=char, fill=fill), stylemap=colormap)
 
 
-def test_bbox_from_arbitrary_iterator():
+def test_bbox_from_arbitrary_iterator(poly_file):
 
     # Python 2 doesn't give direct access to an object that can be used to check if an object
     # is an instance of tee
     pair = itertools.tee(range(10))
     itertools_tee_type = pair[1].__class__
 
-    with fio.open(POLY_FILE) as c_src, \
-            fio.open(POLY_FILE) as l_src, \
-            fio.open(POLY_FILE) as g_src,\
-            fio.open(POLY_FILE) as expected:
+    with fio.open(poly_file) as c_src, \
+            fio.open(poly_file) as l_src, \
+            fio.open(poly_file) as g_src,\
+            fio.open(poly_file) as expected:
         # Tuple element 1 is an iterable object to test and element 2 is the expected type of
         # the output iterator
         test_objects = [
@@ -305,10 +301,10 @@ def test_bbox_from_arbitrary_iterator():
                 assert e['id'] == a['id'], "%s != %s" % (e['id'], a['id'])
 
 
-def test_render_multiple():
-    with fio.open(POLY_FILE) as poly, \
-            fio.open(LINE_FILE) as lines, \
-            fio.open(POINT_FILE) as points:
+def test_render_multiple(poly_file, line_file, point_file):
+    with fio.open(poly_file) as poly, \
+            fio.open(line_file) as lines, \
+            fio.open(point_file) as points:
 
         coords = list(poly.bounds) + list(lines.bounds) + list(points.bounds)
         bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
@@ -334,10 +330,10 @@ def test_render_exceptions():
             gj2ascii.render([], width=w)
 
 
-def test_style_multiple():
-    with fio.open(POLY_FILE) as poly, \
-            fio.open(LINE_FILE) as lines, \
-            fio.open(POINT_FILE) as points:
+def test_style_multiple(poly_file, line_file, point_file):
+    with fio.open(poly_file) as poly, \
+            fio.open(line_file) as lines, \
+            fio.open(point_file) as points:
 
         coords = list(poly.bounds) + list(lines.bounds) + list(points.bounds)
         bbox = (min(coords[0::4]), min(coords[1::4]), max(coords[2::4]), max(coords[3::4]))
