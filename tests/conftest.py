@@ -195,10 +195,11 @@ def small_aoi_poly_line_file():
 
 @pytest.fixture(scope='module')
 def compare_ascii():
-    def _compare_ascii(out1, out2):
-        # Zip over two blocks of text and compare each pair of lines
-        for o1_line, o2_line in zip(out1.rstrip().splitlines(), out2.rstrip().splitlines()):
-            if o1_line.rstrip() != o2_line.rstrip():
-                return False
-        return True
+    def _compare_ascii(text1, text2):
+        a = [l.rstrip() for l in text1.strip().splitlines()]
+        b = [l.rstrip() for l in text2.strip().splitlines()]
+        if a == b:
+            return True
+        else:
+            raise Exception("{} != {}".format(repr(text1), repr(text2)))
     return _compare_ascii

@@ -14,12 +14,10 @@ import pytest
 
 import gj2ascii
 import gj2ascii.core
-from . import compare_ascii
 import numpy as np
 
 
-# compare_ascii() is a function that is defined within the unittests and only used for testing
-def test_compare_ascii():
+def test_compare_ascii(compare_ascii):
     block = """
     line1
     line2
@@ -168,40 +166,40 @@ class TestGeometryExtractor(unittest.TestCase):
             self.assertDictEqual(expected, actual)
 
 
-class TestStack(unittest.TestCase):
+def test_standard():
 
-    def test_standard(self):
+    l1 = gj2ascii.array2ascii([['*', '*', '*', '*', '*'],
+                               [' ', ' ', '*', ' ', ' '],
+                               ['*', '*', ' ', ' ', ' ']])
 
-        l1 = gj2ascii.array2ascii([['*', '*', '*', '*', '*'],
-                                   [' ', ' ', '*', ' ', ' '],
-                                   ['*', '*', ' ', ' ', ' ']])
+    l2 = gj2ascii.array2ascii([[' ', ' ', ' ', '+', '+'],
+                               [' ', '+', ' ', ' ', ' '],
+                               [' ', ' ', '+', '+', '+']])
 
-        l2 = gj2ascii.array2ascii([[' ', ' ', ' ', '+', '+'],
-                                   [' ', '+', ' ', ' ', ' '],
-                                   [' ', ' ', '+', '+', '+']])
+    eo = gj2ascii.array2ascii([['*', '*', '*', '+', '+'],
+                               ['.', '+', '*', '.', '.'],
+                               ['*', '*', '+', '+', '+']])
 
-        eo = gj2ascii.array2ascii([['*', '*', '*', '+', '+'],
-                                   ['.', '+', '*', '.', '.'],
-                                   ['*', '*', '+', '+', '+']])
+    assert gj2ascii.stack(
+        [l1, l2], fill='.').strip(os.linesep), eo.strip(os.linesep)
 
-        self.assertEqual(gj2ascii.stack(
-            [l1, l2], fill='.').strip(os.linesep), eo.strip(os.linesep))
 
-    def test_exceptions(self):
-        # Bad fill value
-        with self.assertRaises(ValueError):
-            gj2ascii.stack([], fill='too-long')
+def test_exceptions():
+    # Bad fill value
+    with pytest.raises(ValueError):
+        gj2ascii.stack([], fill='too-long')
 
-        # Input layers have different dimensions
-        with self.assertRaises(ValueError):
-            gj2ascii.stack(['1', '1234'])
+    # Input layers have different dimensions
+    with pytest.raises(ValueError):
+        gj2ascii.stack(['1', '1234'])
 
-    def test_single_layer(self):
-        l1 = gj2ascii.array2ascii([['*', '*', '*', '*', '*'],
-                                   [' ', ' ', '*', ' ', ' '],
-                                   ['*', '*', ' ', ' ', ' ']])
 
-        self.assertTrue(compare_ascii(l1, gj2ascii.stack([l1])))
+def test_single_layer(compare_ascii):
+    l1 = gj2ascii.array2ascii([['*', '*', '*', '*', '*'],
+                               [' ', ' ', '*', ' ', ' '],
+                               ['*', '*', ' ', ' ', ' ']])
+
+    assert compare_ascii(l1, gj2ascii.stack([l1]))
 
 
 class TestArray2Ascii2Array(unittest.TestCase):
@@ -301,7 +299,7 @@ def test_bbox_from_arbitrary_iterator(poly_file):
                 assert e['id'] == a['id'], "%s != %s" % (e['id'], a['id'])
 
 
-def test_render_multiple(poly_file, line_file, point_file):
+def test_render_multiple(poly_file, line_file, point_file, compare_ascii):
     with fio.open(poly_file) as poly, \
             fio.open(line_file) as lines, \
             fio.open(point_file) as points:

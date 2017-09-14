@@ -16,10 +16,9 @@ import pytest
 
 import gj2ascii
 from gj2ascii import cli
-from . import compare_ascii
 
 
-def test_complex(runner, expected_line_40_wide, line_file):
+def test_complex(runner, expected_line_40_wide, line_file, compare_ascii):
     result = runner.invoke(cli.main, [
         line_file,
         '--width', '40',
@@ -92,7 +91,7 @@ def test_iterate_wrong_arg_count(runner, poly_file):
     assert 'layer' in result.output
 
 
-def test_bbox(runner, poly_file, small_aoi_poly_line_file):
+def test_bbox(runner, poly_file, small_aoi_poly_line_file, compare_ascii):
     expected = os.linesep.join([
         '                                + + + +',
         '                                  + + +',
@@ -133,7 +132,7 @@ def test_exceed_auto_generate_colormap_limit(runner, poly_file):
     assert '--char' in result.output
 
 
-def test_default_char_map(runner, poly_file):
+def test_default_char_map(runner, poly_file, compare_ascii):
     with fio.open(poly_file) as src:
         expected = gj2ascii.render(src)
     result = runner.invoke(cli.main, [
@@ -143,7 +142,7 @@ def test_default_char_map(runner, poly_file):
     assert compare_ascii(result.output.strip(), expected.strip())
 
 
-def test_same_char_twice(runner, poly_file, line_file):
+def test_same_char_twice(runner, poly_file, line_file, compare_ascii):
     width = 40
     fill = '.'
     char = '+'
@@ -173,7 +172,7 @@ def test_iterate_bad_property(runner, single_feature_wv_file):
     assert isinstance(result.exception, KeyError)
 
 
-def test_styled_write_to_file(runner, single_feature_wv_file):
+def test_styled_write_to_file(runner, single_feature_wv_file, compare_ascii):
     with fio.open(single_feature_wv_file) as src:
         expected = gj2ascii.render(src, width=20, char='1', fill='0')
     with tempfile.NamedTemporaryFile('r+') as f:
@@ -215,7 +214,7 @@ def test_iterate_too_many_layers(runner, multilayer_file):
     assert 'single layer' in result.output
 
 
-def test_multilayer_compute_colormap(runner, multilayer_file):
+def test_multilayer_compute_colormap(runner, multilayer_file, compare_ascii):
     coords = []
     for layer in ('polygons', 'lines'):
         with fio.open(multilayer_file, layer=layer) as src:
@@ -238,7 +237,7 @@ def test_multilayer_compute_colormap(runner, multilayer_file):
     assert compare_ascii(expected.strip(), result.output.strip())
 
 
-def test_stack_layers(runner, multilayer_file):
+def test_stack_layers(runner, multilayer_file, compare_ascii):
     expected = os.linesep.join([
         '. + . . . . . . . . . . . + . . . . . .',
         '. + + + . . . . . . . . . . . . . . . .',
@@ -269,7 +268,7 @@ def test_stack_layers(runner, multilayer_file):
     assert compare_ascii(result.output.strip(), expected)
 
 
-def test_write_to_file(runner, single_feature_wv_file):
+def test_write_to_file(runner, single_feature_wv_file, compare_ascii):
     expected = os.linesep.join([
         '+-------+-----------+',
         '| NAME  |   Barbour |',
@@ -314,7 +313,8 @@ def test_paginate_with_all_properties(
 
 @pytest.mark.xfail(True, reason="Expected and actual not correct.")
 def test_paginate_with_two_properties(
-        runner, expected_all_properties_output, single_feature_wv_file):
+        runner, expected_all_properties_output, single_feature_wv_file,
+        compare_ascii):
     result = runner.invoke(cli.main, [
         single_feature_wv_file,
         '--width', '20',
@@ -326,7 +326,7 @@ def test_paginate_with_two_properties(
     assert compare_ascii(result.output.strip(), expected_all_properties_output.strip())
 
 
-def test_simple(runner, expected_polygon_40_wide, poly_file):
+def test_simple(runner, expected_polygon_40_wide, poly_file, compare_ascii):
     result = runner.invoke(cli.main, [
         poly_file,
         '--width', '40',
@@ -413,7 +413,7 @@ def test_with_emoji(runner, poly_file, line_file):
         assert ucode in result.output
 
 
-def test_no_style(runner, expected_polygon_40_wide, poly_file):
+def test_no_style(runner, expected_polygon_40_wide, poly_file, compare_ascii):
     result = runner.invoke(cli.main, [
         poly_file,
         '-c', '+',
