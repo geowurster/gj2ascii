@@ -337,67 +337,64 @@ def test_simple(runner, expected_polygon_40_wide, poly_file, compare_ascii):
     assert compare_ascii(result.output.strip(), expected_polygon_40_wide)
 
 
-class TestCallbacks(unittest.TestCase):
+def test_cb_char_and_fill():
+    testvals = {
+        'a': [('a', None)],
+        ('a', 'b'): [('a', None), ('b', None)],
+        'black': [(gj2ascii.DEFAULT_COLOR_CHAR['black'], 'black')],
+        ('black', 'blue'): [
+            (gj2ascii.DEFAULT_COLOR_CHAR['black'], 'black'),
+            (gj2ascii.DEFAULT_COLOR_CHAR['blue'], 'blue')
+        ],
+        ('+=red', '==yellow'): [('+', 'red'), ('=', 'yellow')],
+        None: []
+    }
 
-    def test_cb_char_and_fill(self):
-        testvals = {
-            'a': [('a', None)],
-            ('a', 'b'): [('a', None), ('b', None)],
-            'black': [(gj2ascii.DEFAULT_COLOR_CHAR['black'], 'black')],
-            ('black', 'blue'): [
-                (gj2ascii.DEFAULT_COLOR_CHAR['black'], 'black'),
-                (gj2ascii.DEFAULT_COLOR_CHAR['blue'], 'blue')
-            ],
-            ('+=red', '==yellow'): [('+', 'red'), ('=', 'yellow')],
-            None: []
-        }
+    # The callback can return a list of tuples or a list of lists.  Force test to compare
+    # list to list.
+    for inval, expected in testvals.items():
+        expected = [list(i) for i in expected]
+        actual = [list(i) for i in cli._cb_char_and_fill(None, None, inval)]
+        assert expected == actual
+    with pytest.raises(click.BadParameter):
+        cli._cb_char_and_fill(None, None, 'bad-color')
+    with pytest.raises(click.BadParameter):
+        cli._cb_char_and_fill(None, None, ('bad-color'))
 
-        # The callback can return a list of tuples or a list of lists.  Force test to compare
-        # list to list.
-        for inval, expected in testvals.items():
-            expected = [list(i) for i in expected]
-            actual = [list(i) for i in cli._cb_char_and_fill(None, None, inval)]
-            self.assertEqual(expected, actual)
-        with self.assertRaises(click.BadParameter):
-            cli._cb_char_and_fill(None, None, 'bad-color')
-        with self.assertRaises(click.BadParameter):
-            cli._cb_char_and_fill(None, None, ('bad-color'))
 
-    def test_cb_properties(self):
+def test_cb_properties():
+    for v in ('%all', None):
+        assert v == cli._cb_properties(None, None, v)
 
-        for v in ('%all', None):
-            self.assertEqual(v, cli._cb_properties(None, None, v))
+    props = 'PROP1,PROP2,PROP3'
+    assert props.split(',') == cli._cb_properties(None, None, props)
 
-        props = 'PROP1,PROP2,PROP3'
-        self.assertEqual(props.split(','), cli._cb_properties(None, None, props))
 
-    def test_cb_multiple_default(self):
+def test_cb_multiple_default():
+    values = ('1', '2')
+    assert values == cli._cb_multiple_default(None, None, values)
+    values = '1'
+    assert (values) == cli._cb_multiple_default(None, None, values)
 
-        values = ('1', '2')
-        self.assertEqual(values, cli._cb_multiple_default(None, None, values))
-        values = '1'
-        self.assertEqual((values), cli._cb_multiple_default(None, None, values))
 
-    def test_cb_bbox(self):
+def test_cb_bbox(poly_file):
 
-        bbox_file = 'sample-data/polygons.geojson'
+    with fio.open(poly_file) as src:
 
-        with fio.open(bbox_file) as src:
+        assert None == cli._cb_bbox(None, None, None)
+        assert src.bounds == cli._cb_bbox(None, None, src.bounds)
 
-            self.assertEqual(None, cli._cb_bbox(None, None, None))
-            self.assertEqual(src.bounds, cli._cb_bbox(None, None, src.bounds))
+    # Bbox with invalid X values
+    with pytest.raises(click.BadParameter):
+        cli._cb_bbox(None, None, (2, 0, 1, 0,))
 
-        # Bbox with invalid X values
-        with self.assertRaises(click.BadParameter):
-            cli._cb_bbox(None, None, (2, 0, 1, 0,))
+    # Bbox with invalid Y values
+    with pytest.raises(click.BadParameter):
+        cli._cb_bbox(None, None, (0, 2, 0, 1))
 
-        # Bbox with invalid Y values
-        with self.assertRaises(click.BadParameter):
-            cli._cb_bbox(None, None, (0, 2, 0, 1))
-
-        # Bbox with invalid X and Y values
-        with self.assertRaises(click.BadParameter):
-            cli._cb_bbox(None, None, (2, 2, 1, 1,))
+    # Bbox with invalid X and Y values
+    with pytest.raises(click.BadParameter):
+        cli._cb_bbox(None, None, (2, 2, 1, 1,))
 
 
 def test_with_emoji(runner, poly_file, line_file):

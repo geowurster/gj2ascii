@@ -17,6 +17,73 @@ import gj2ascii.core
 import numpy as np
 
 
+@pytest.fixture(scope='function')
+def geo_interface_feature():
+
+    class GIFeature(object):
+        __geo_interface__ = {
+            'type': 'Feature',
+            'properties': {},
+            'geometry': {
+                'type': 'Point',
+                'coordinates': [10, 20, 30]
+            }
+        }
+    return GIFeature()
+
+
+@pytest.fixture(scope='function')
+def geo_interface_geometry():
+    class GIGeometry(object):
+        __geo_interface__ = {
+            'type': 'Polygon',
+            'coordinates': [[(1.23, -56.5678), (4.897, 20.937), (9.9999999, -23.45)]]
+        }
+    return GIGeometry()
+
+
+@pytest.fixture(scope='function')
+def feature():
+    return {
+        'type': 'Feature',
+        'properties': {},
+        'geometry': {
+            'type': 'Line',
+            'coordinates': ((1.23, -67.345), (87.12354, -23.4555), (123.876, -78.9444))
+        }
+    }
+
+
+@pytest.fixture(scope='function')
+def geometry():
+    return {
+        'type': 'Point',
+        'coordinates': (0, 0, 10)
+    }
+
+
+@pytest.fixture(scope='function')
+def ascii():
+    return os.linesep.join([
+        '* * * * *',
+        '  *   *  ',
+        '* * * * *'
+    ])
+
+
+@pytest.fixture(scope='function')
+def array():
+    return [
+        ['*', '*', '*', '*', '*'],
+        [' ', '*', ' ', '*', ' '],
+        ['*', '*', '*', '*', '*']]
+
+
+@pytest.fixture(scope='function')
+def np_array(array):
+    return np.array(array)
+
+
 def test_compare_ascii(compare_ascii):
     block = """
     line1
@@ -29,20 +96,19 @@ def test_compare_ascii(compare_ascii):
     assert compare_ascii(block, block) is True
 
 
-class TestDictTable(unittest.TestCase):
+def test_dict2table_empty_dict():
+    with pytest.raises(ValueError):
+        gj2ascii.dict2table({})
 
-    def test_empty_dict(self):
-        with self.assertRaises(ValueError):
-            gj2ascii.dict2table({})
 
-    def test_with_values(self):
-        test_dict = OrderedDict((
-            ('Field1', None),
-            ('__something', 'a string'),
-            ('more', 12345),
-            ('other', 1.2344566)
-        ))
-        expected = """
+def test_dict2table():
+    test_dict = OrderedDict((
+        ('Field1', None),
+        ('__something', 'a string'),
+        ('more', 12345),
+        ('other', 1.2344566)
+    ))
+    expected = """
 +-------------+-----------+
 | Field1      |      None |
 | __something |  a string |
@@ -50,7 +116,7 @@ class TestDictTable(unittest.TestCase):
 | other       | 1.2344566 |
 +-------------+-----------+
 """.strip()
-        self.assertEqual(gj2ascii.dict2table(test_dict), expected)
+    assert gj2ascii.dict2table(test_dict) == expected
 
 
 def test_render_exception():
@@ -84,86 +150,47 @@ def test_with_fio(expected_polygon_40_wide, poly_file):
         assert expected_polygon_40_wide == r.rstrip()
 
 
-class TestGeometryExtractor(unittest.TestCase):
+def test_geometry_extractor_exceptions():
+    with pytest.raises(TypeError):
+        next(gj2ascii.core._geometry_extractor([{'type': None}]))
 
-    def setUp(self):
 
-        class GIFeature(object):
-            __geo_interface__ = {
-                'type': 'Feature',
-                'properties': {},
-                'geometry': {
-                    'type': 'Point',
-                    'coordinates': [10, 20, 30]
-                }
-            }
-        self.gi_feature = GIFeature()
+def test_single_object(geometry, feature, geo_interface_feature, geo_interface_geometry):
+    assert geometry == next(gj2ascii.core._geometry_extractor(geometry))
+    assert feature['geometry'] == next(gj2ascii.core._geometry_extractor(feature))
+    assert geo_interface_feature.__geo_interface__['geometry'] == next(gj2ascii.core._geometry_extractor(geo_interface_feature))
+    assert geo_interface_geometry.__geo_interface__ == next(gj2ascii.core._geometry_extractor(geo_interface_geometry))
 
-        class GIGeometry(object):
-            __geo_interface__ = {
-                'type': 'Polygon',
-                'coordinates': [[(1.23, -56.5678), (4.897, 20.937), (9.9999999, -23.45)]]
-            }
-        self.gi_geometry = GIGeometry()
 
-        self.feature = {
-            'type': 'Feature',
-            'properties': {},
-            'geometry': {
-                'type': 'Line',
-                'coordinates': ((1.23, -67.345), (87.12354, -23.4555), (123.876, -78.9444))
-            }
-        }
+def test_multiple_homogeneous(geometry, feature, geo_interface_geometry, geo_interface_feature):
 
-        self.geometry = {
-            'type': 'Point',
-            'coordinates': (0, 0, 10)
-        }
+    for item in gj2ascii.core._geometry_extractor(
+            (geometry, geometry, geometry)):
+        assert item == geometry
 
-    def test_exceptions(self):
-        with self.assertRaises(TypeError):
-            next(gj2ascii.core._geometry_extractor([{'type': None}]))
+    for item in gj2ascii.core._geometry_extractor(
+            (feature, feature, feature)):
+        assert item == feature['geometry']
 
-    def test_single_object(self):
-        self.assertDictEqual(
-            self.geometry, next(gj2ascii.core._geometry_extractor(self.geometry)))
-        self.assertDictEqual(
-            self.feature['geometry'], next(gj2ascii.core._geometry_extractor(self.feature)))
-        self.assertDictEqual(
-            self.gi_feature.__geo_interface__['geometry'],
-            next(gj2ascii.core._geometry_extractor(self.gi_feature)))
-        self.assertDictEqual(
-            self.gi_geometry.__geo_interface__,
-            next(gj2ascii.core._geometry_extractor(self.gi_geometry)))
+    for item in gj2ascii.core._geometry_extractor(
+            (geo_interface_geometry, geo_interface_geometry, geo_interface_geometry)):
+        assert item == geo_interface_geometry.__geo_interface__
 
-    def test_multiple_homogeneous(self):
+    for item in gj2ascii.core._geometry_extractor(
+            (geo_interface_feature, geo_interface_feature, geo_interface_feature)):
+        assert item == geo_interface_feature.__geo_interface__['geometry']
 
-        for item in gj2ascii.core._geometry_extractor(
-                (self.geometry, self.geometry, self.geometry)):
-            self.assertDictEqual(item, self.geometry)
 
-        for item in gj2ascii.core._geometry_extractor(
-                (self.feature, self.feature, self.feature)):
-            self.assertDictEqual(item, self.feature['geometry'])
-
-        for item in gj2ascii.core._geometry_extractor(
-                (self.gi_geometry, self.gi_geometry, self.gi_geometry)):
-            self.assertDictEqual(item, self.gi_geometry.__geo_interface__)
-
-        for item in gj2ascii.core._geometry_extractor(
-                (self.gi_feature, self.gi_feature, self.gi_feature)):
-            self.assertDictEqual(item, self.gi_feature.__geo_interface__['geometry'])
-
-    def test_multiple_heterogeneous(self):
-        input_objects = (self.geometry, self.feature, self.gi_feature, self.gi_geometry)
-        expected = (
-            self.geometry, self.feature['geometry'],
-            self.gi_feature.__geo_interface__['geometry'],
-            self.gi_geometry.__geo_interface__
-        )
-        for expected, actual in zip(
-                expected, gj2ascii.core._geometry_extractor(input_objects)):
-            self.assertDictEqual(expected, actual)
+def test_multiple_heterogeneous(geometry, feature, geo_interface_feature, geo_interface_geometry):
+    input_objects = (geometry, feature, geo_interface_feature, geo_interface_geometry)
+    expected = (
+        geometry, feature['geometry'],
+        geo_interface_feature.__geo_interface__['geometry'],
+        geo_interface_geometry.__geo_interface__
+    )
+    for expected, actual in zip(
+            expected, gj2ascii.core._geometry_extractor(input_objects)):
+        assert expected == actual
 
 
 def test_standard():
@@ -202,59 +229,42 @@ def test_single_layer(compare_ascii):
     assert compare_ascii(l1, gj2ascii.stack([l1]))
 
 
-class TestArray2Ascii2Array(unittest.TestCase):
-
-    def setUp(self):
-        self.ascii = (
-            '* * * * *' + os.linesep +
-            '  *   *  ' + os.linesep +
-            '* * * * *'
-        )
-        self.array = [
-            ['*', '*', '*', '*', '*'],
-            [' ', '*', ' ', '*', ' '],
-            ['*', '*', '*', '*', '*']
-        ]
-        self.np_array = np.array(self.array)
-
-    def test_ascii2array(self):
-        self.assertEqual(self.array, gj2ascii.ascii2array(self.ascii))
-        self.assertTrue(
-            np.array_equal(self.np_array, np.array(gj2ascii.ascii2array(self.ascii))))
-
-    def test_array2ascii(self):
-        self.assertEqual(self.ascii, gj2ascii.array2ascii(self.array))
-        self.assertEqual(self.ascii, gj2ascii.array2ascii(self.np_array))
-
-    def test_roundhouse(self):
-        self.assertEqual(self.ascii, gj2ascii.array2ascii(gj2ascii.ascii2array(self.ascii)))
-        self.assertEqual(self.array, gj2ascii.ascii2array(gj2ascii.array2ascii(self.array)))
+def test_ascii2array(array, ascii):
+    assert array == gj2ascii.ascii2array(ascii)
+    assert np.array_equal(array, np.array(gj2ascii.ascii2array(ascii)))
 
 
-class TestStyle(unittest.TestCase):
+def test_array2ascii(ascii, array):
+    assert ascii == gj2ascii.array2ascii(array)
+    assert ascii == gj2ascii.array2ascii(array)
 
-    def test_style(self):
 
-        array = [['0', '0', '0', '1', '0'],
-                 [' ', ' ', '2', '0', '1'],
-                 ['1', '1', '2', '1', '3']]
-        colormap = {
-            ' ': 'black',
-            '0': 'blue',
-            '1': 'yellow',
-            '2': 'white',
-            '3': 'red'
-        }
-        expected = []
-        for row in array:
-            o_row = []
-            for char in row:
-                color = gj2ascii.ANSI_COLORMAP[colormap[char]]
-                o_row.append(color + char + ' ' + gj2ascii.core._ANSI_RESET)
-            expected.append(''.join(o_row))
-        expected = os.linesep.join(expected)
-        self.assertEqual(
-            expected, gj2ascii.style(gj2ascii.array2ascii(array), stylemap=colormap))
+def test_roundhouse(ascii, array):
+    assert ascii == gj2ascii.array2ascii(gj2ascii.ascii2array(ascii))
+    assert array == gj2ascii.ascii2array(gj2ascii.array2ascii(array))
+
+
+def test_style():
+
+    array = [['0', '0', '0', '1', '0'],
+             [' ', ' ', '2', '0', '1'],
+             ['1', '1', '2', '1', '3']]
+    colormap = {
+        ' ': 'black',
+        '0': 'blue',
+        '1': 'yellow',
+        '2': 'white',
+        '3': 'red'
+    }
+    expected = []
+    for row in array:
+        o_row = []
+        for char in row:
+            color = gj2ascii.ANSI_COLORMAP[colormap[char]]
+            o_row.append(color + char + ' ' + gj2ascii.core._ANSI_RESET)
+        expected.append(''.join(o_row))
+    expected = os.linesep.join(expected)
+    assert expected == gj2ascii.style(gj2ascii.array2ascii(array), stylemap=colormap)
 
 
 def test_paginate(poly_file):
