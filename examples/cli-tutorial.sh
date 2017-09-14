@@ -10,13 +10,13 @@ cat sample-data/polygons.geojson | gj2ascii -
 gj2ascii sample-data/WV.geojson -w 10 -c \* -f .
 
 # Iterate over every feature in a layer but don't print an attribute table
-gj2ascii sample-data/WV.geojson -i
+gj2ascii sample-data/WV.geojson --iterate
 
 # Same as above but print two attributes
-gj2ascii sample-data/WV.geojson -i -p ALAND,AWATER
+gj2ascii sample-data/WV.geojson --iterate -p ALAND,AWATER
 
 # Same as above but print all attributes
-gj2ascii sample-data/WV.geojson -i -p %all
+gj2ascii sample-data/WV.geojson --iterate -p %all
 
 # Render multiple single-layer files
 gj2ascii sample-data/polygons.geojson sample-data/lines.geojson
