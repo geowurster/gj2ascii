@@ -13,12 +13,12 @@ from types import GeneratorType
 
 from .pycompat import text_type
 
+from shapely.geometry import asShape
+from shapely.geometry import mapping
 import affine
 import numpy as np
 import rasterio as rio
 from rasterio.features import rasterize
-from shapely.geometry import asShape
-from shapely.geometry import mapping
 try:  # pragma no cover
     import emoji
 except ImportError:  # pragma no cover
