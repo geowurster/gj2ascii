@@ -155,12 +155,32 @@ def expected_all_properties_output():
         '| INTPTLAT |    +39.1397248 |',
         '| INTPTLON |   -079.9969466 |',
         '+----------+----------------+',
-        '',
-        '',
+        '                   ',
+        '                   ',
         '      + + +   + + +',
         '    + + + + + +',
         '+ + + + + +',
-        '+ + + + +'])
+        '+ + + + +',
+        '',
+        ''])
+
+
+@pytest.fixture(scope='function')
+def expected_two_properties_output():
+    return os.linesep.join([
+        '+-------+-----------+',
+        '| NAME  |   Barbour |',
+        '| ALAND | 883338808 |',
+        '+-------+-----------+',
+        '* * * * * * * * * *',
+        '* * * * * * * * * *',
+        '* * * + + + * + + +',
+        '* * + + + + + + * *',
+        '+ + + + + + * * * *',
+        '+ + + + + * * * * *',
+        '',
+        ''
+    ])
 
 
 @pytest.fixture(scope='module')

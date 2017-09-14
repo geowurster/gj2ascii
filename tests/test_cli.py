@@ -298,9 +298,9 @@ def test_write_to_file(runner, single_feature_wv_file, compare_ascii):
             f.read().strip(), expected)
 
 
-@pytest.mark.xfail(True, reason="Expected and actual not correct.")
 def test_paginate_with_all_properties(
-        runner, expected_all_properties_output, single_feature_wv_file):
+        runner, expected_all_properties_output, single_feature_wv_file,
+        compare_ascii):
     result = runner.invoke(cli.main, [
         single_feature_wv_file,
         '--width', '20',
@@ -308,12 +308,11 @@ def test_paginate_with_all_properties(
         '--iterate', '--no-prompt'
     ])
     assert result.exit_code == 0
-    assert result.output.strip() == expected_all_properties_output.strip()
+    assert compare_ascii(result.output, expected_all_properties_output)
 
 
-@pytest.mark.xfail(True, reason="Expected and actual not correct.")
 def test_paginate_with_two_properties(
-        runner, expected_all_properties_output, single_feature_wv_file,
+        runner, expected_two_properties_output, single_feature_wv_file,
         compare_ascii):
     result = runner.invoke(cli.main, [
         single_feature_wv_file,
@@ -323,7 +322,7 @@ def test_paginate_with_two_properties(
         '--iterate', '--no-prompt'
     ])
     assert result.exit_code == 0
-    assert compare_ascii(result.output.strip(), expected_all_properties_output.strip())
+    assert compare_ascii(result.output, expected_two_properties_output)
 
 
 def test_simple(runner, expected_polygon_40_wide, poly_file, compare_ascii):
