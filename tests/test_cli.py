@@ -341,8 +341,8 @@ class TestCallbacks(unittest.TestCase):
             cli._cb_bbox(None, None, (2, 2, 1, 1,))
 
 
-def test_with_emoji():
-    result = CliRunner().invoke(cli.main, [
+def test_with_emoji(runner):
+    result = runner.invoke(cli.main, [
         POLY_FILE,
         LINE_FILE,
         '-c', ':water_wave:',
@@ -354,8 +354,8 @@ def test_with_emoji():
         assert ucode in result.output
 
 
-def test_no_style():
-    result = CliRunner().invoke(cli.main, [
+def test_no_style(runner):
+    result = runner.invoke(cli.main, [
         POLY_FILE,
         '-c', '+',
         '--no-style',
@@ -366,8 +366,8 @@ def test_no_style():
     assert compare_ascii(result.output.strip(), EXPECTED_POLYGON_40_WIDE.strip())
 
 
-def test_print_colors():
-    result = CliRunner().invoke(cli.main, [
+def test_print_colors(runner):
+    result = runner.invoke(cli.main, [
         '--colors'
     ])
     assert result.exit_code is 0
